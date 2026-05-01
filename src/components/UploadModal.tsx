@@ -51,7 +51,11 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     const client = supabase;
-    if (!files || files.length === 0 || !client) return;
+    if (!client) {
+      alert('系統設定錯誤：無法連線至雲端資料庫。請確認 Vercel 環境變數 (VITE_SUPABASE_URL) 已正確設定並且已重新部署 (Redeploy)。');
+      return;
+    }
+    if (!files || files.length === 0) return;
 
     const fileList = Array.from(files) as File[];
     setUploadingFile(true);
