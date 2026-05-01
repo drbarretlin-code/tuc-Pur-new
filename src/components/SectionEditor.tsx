@@ -33,6 +33,8 @@ const SectionEditor: React.FC<Props> = ({
   searchStatus = 'none', bilingualStatus, cachedSrc, onForceTranslate, addon, language
 }) => {
   const [isFocused, setIsFocused] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null); // V30: Use ref to prevent React mutation crash
+  
   const safeValue = (typeof value === 'string') ? value : (value != null ? String(value) : '');
   const displayValue = (safeValue && safeValue.startsWith('default')) ? t(safeValue, language) : safeValue;
 
@@ -77,6 +79,7 @@ const SectionEditor: React.FC<Props> = ({
       ) : (
         <div style={{ position: 'relative' }}>
           <input
+            ref={inputRef}
             type={inputType === 'date' && !displayValue && !isFocused ? 'text' : inputType}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
@@ -88,15 +91,14 @@ const SectionEditor: React.FC<Props> = ({
           {inputType === 'date' && (
             <div 
               onClick={(e) => {
-                const input = e.currentTarget.previousSibling as HTMLInputElement;
-                if (input) {
-                  if (input.type !== 'date') input.type = 'date';
-                  if (typeof (input as any).showPicker === 'function') {
-                    try { (input as any).showPicker(); } catch (err) {}
-                  } else {
-                    input.focus();
+                e.preventDefault();
+                setIsFocused(true); // 強制轉為 date 以避免 React type conflict
+                setTimeout(() => {
+                  if (inputRef.current) {
+                    try { (inputRef.current as any).showPicker(); } 
+                    catch (err) { inputRef.current.focus(); }
                   }
-                }
+                }, 10);
               }}
               style={{ 
                 position: 'absolute', 
@@ -199,7 +201,10 @@ const SectionEditor: React.FC<Props> = ({
              </div>
           )}
           {searchStatus === 'empty' && (
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>ℹ️ {t('noHints', language)}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FBBF24', padding: '4px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: '4px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+              <span>ℹ️</span> 
+              <span>{t('noHints', language)} {language === 'zh-TW' ? '(資料庫內無歷史資料)' : ''}</span>
+            </div>
           )}
         </div>
       )}

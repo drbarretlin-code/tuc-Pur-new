@@ -59,14 +59,27 @@ export function trackGeminiUsage(modelId?: string | null) {
  */
 export function getGeminiKeyPool(): string[] {
   const activeKey = localStorage.getItem('tuc_gemini_key') || '';
-  const poolStr = localStorage.getItem('gemini_api_key_pool') || '';
+  let poolStr = localStorage.getItem('gemini_api_key_pool') || '';
+
+  // V30: 嘗試解析可能為 JSON 陣列的字串，避免引號與括號破壞金鑰
+  try {
+    const parsed = JSON.parse(poolStr);
+    if (Array.isArray(parsed)) {
+      poolStr = parsed.join(',');
+    }
+  } catch (e) {
+    // 若不是 JSON，則保持原樣
+  }
+
   const legacyKey = localStorage.getItem('gemini_api_key') || '';
   const envKey1 = import.meta.env.VITE_GEMINI_API_KEY || '';
   const envKey2 = import.meta.env.VITE_GEMINI_KEY || '';
   
   // 遍歷所有可能的來源並進行分割
   const allRaw = [activeKey, poolStr, legacyKey, envKey1, envKey2].join(',');
-  const keys = allRaw.split(/[,，\n;；]/).map(k => k.trim()).filter(k => k);
+  const keys = allRaw.split(/[,，\n;；]/)
+    .map(k => k.trim().replace(/^["'\[\]]+|["'\[\]]+$/g, '')) // 移除多餘的陣列符號與引號
+    .filter(k => k);
   
   return Array.from(new Set(keys));
 }
