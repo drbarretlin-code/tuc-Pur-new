@@ -17,13 +17,6 @@ ALTER TABLE public.specs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read-write for specs" ON public.specs
     FOR ALL USING (true) WITH CHECK (true);
 
--- 步驟 2: Storage Bucket (若 SQL 無法建立，請至 Storage UI 手動建立名為 spec-files 的公開 Bucket)
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('spec-files', 'spec-files', true)
-ON CONFLICT (id) DO NOTHING;
-CREATE POLICY "Allow public read-write for storage" ON storage.objects
-    FOR ALL USING (bucket_id = 'spec-files') WITH CHECK (bucket_id = 'spec-files');
-
 -- 步驟 3: 歷史知識庫
 CREATE TABLE IF NOT EXISTS tuc_history_knowledge (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

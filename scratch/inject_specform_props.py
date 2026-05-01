@@ -1,35 +1,24 @@
 import re
-import os
 
-file_path = '/Users/barretlin/Documents/Antigravity_Files/tuc-Purchase-main/src/components/SpecForm.tsx'
+file_path = '/Users/barretlin/Antigravity/tuc-Purchase-new/src/components/SpecForm.tsx'
 with open(file_path, 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Pattern to find SectionEditor calls and inject bilingual props
-# We look for value={data.FIELD} and extract FIELD
-def inject_props(match):
-    full_call = match.group(0)
-    # Extract field name from value={data.FIELD}
-    val_match = re.search(r'value=\{data\.(\w+)\}', full_call)
-    if val_match:
-        field = val_match.group(1)
-        # Avoid double injection
-        if 'bilingualStatus' in full_call:
-            return full_call
-        
-        insertion = f'\n                    bilingualStatus={{data.bilingualStatus?.["{field}"]}}\n                    cachedSrc={{data.bilingualCache?.["{field}_src"]}}'
-        # Insert before language={data.language} or at the end of props
-        if 'language={data.language}' in full_call:
-            return full_call.replace('language={data.language}', insertion + '\n                    language={data.language}')
-        else:
-            return full_call.replace('/>', insertion + '\n                  />')
-    return full_call
+# 1. Replace SectionEditor language prop
+content = content.replace("language={data.language === 'th-TH' ? data.primaryLanguage : data.language}", "language={data.language}")
 
-# Regex for SectionEditor component calls
-# Matches <SectionEditor ... /> even across multiple lines
-new_content = re.sub(r'<SectionEditor.*?\/>', inject_props, content, flags=re.DOTALL)
+# 2. Replace Category label and options
+pattern_label = r"\{data\.language === 'th-TH' \? `\$\{t\('category', 'th-TH'\)\} / \$\{t\('category', 'zh-TW'\)\}` : t\('category', data\.language\)\}"
+content = re.sub(pattern_label, "{t('category', data.language)}", content)
+
+categories = ['catNew', 'catRepair', 'catRenovate', 'catOptimize', 'catPurchase']
+for cat in categories:
+    pattern_cat = r"\{data\.language === 'th-TH' \? `\$\{t\('" + cat + r"', 'th-TH'\)\} / \$\{t\('" + cat + r"', 'zh-TW'\)\}` : t\('" + cat + r"', data\.language\)\}"
+    content = re.sub(pattern_cat, "{t('" + cat + r"', data.language)}", content)
+
+# 3. Replace any other ternary checks for language
+content = content.replace("if (data.language === 'th-TH' && typeof value === 'string' && data.bilingualStatus?.[field as string] === 'error')", "if (typeof value === 'string' && data.bilingualStatus?.[field as string] === 'error')")
+content = content.replace("if (data.language === 'th-TH') {", "if (data.primaryLanguage !== data.secondaryLanguage) {")
 
 with open(file_path, 'w', encoding='utf-8') as f:
-    f.write(new_content)
-
-print("SpecForm.tsx updated with bilingual status props.")
+    f.write(content)

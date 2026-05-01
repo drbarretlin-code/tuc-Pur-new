@@ -415,7 +415,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
   const updateField = (field: keyof FormState, value: any) => {
     const nextData = { ...data, [field]: value };
     // 立即清除編輯中欄位的錯誤狀態，提供即時視覺回饋
-    if (data.language === 'th-TH' && typeof value === 'string' && data.bilingualStatus?.[field as string] === 'error') {
+    if (typeof value === 'string' && data.bilingualStatus?.[field as string] === 'error') {
       nextData.bilingualStatus = { ...data.bilingualStatus, [field as string]: 'typing' };
     }
     onChange(nextData);
@@ -709,17 +709,17 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                       onChange={(v: string) => updateField('equipmentName', v)} 
                       isTextArea={false} 
                       addon={<CompactThreshold value={data.matchThresholdHistory} onChange={(v) => updateField('matchThresholdHistory', v)} label={t('aiHistory', data.language)} />}
-                      language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                      language={data.language}
                       onForceTranslate={() => forceBilingualTranslation?.('equipmentName')}
                     />
                   <div className="input-with-label">
-                    <label>{data.language === 'th-TH' ? `${t('category', 'th-TH')} / ${t('category', 'zh-TW')}` : t('category', data.language)}</label>
+                    <label>{t('category', data.language)}</label>
                     <select value={data.category} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateField('category', e.target.value as any)} style={{ width: '100%' }}>
-                      <option value="新增">{data.language === 'th-TH' ? `${t('catNew', 'th-TH')} / ${t('catNew', 'zh-TW')}` : t('catNew', data.language)}</option>
-                      <option value="修繕">{data.language === 'th-TH' ? `${t('catRepair', 'th-TH')} / ${t('catRepair', 'zh-TW')}` : t('catRepair', data.language)}</option>
-                      <option value="整改">{data.language === 'th-TH' ? `${t('catRenovate', 'th-TH')} / ${t('catRenovate', 'zh-TW')}` : t('catRenovate', data.language)}</option>
-                      <option value="優化">{data.language === 'th-TH' ? `${t('catOptimize', 'th-TH')} / ${t('catOptimize', 'zh-TW')}` : t('catOptimize', data.language)}</option>
-                      <option value="購置">{data.language === 'th-TH' ? `${t('catPurchase', 'th-TH')} / ${t('catPurchase', 'zh-TW')}` : t('catPurchase', data.language)}</option>
+                      <option value="新增">{t('catNew', data.language)}</option>
+                      <option value="修繕">{t('catRepair', data.language)}</option>
+                      <option value="整改">{t('catRenovate', data.language)}</option>
+                      <option value="優化">{t('catOptimize', data.language)}</option>
+                      <option value="購置">{t('catPurchase', data.language)}</option>
                     </select>
                   </div>
                   <SectionEditor 
@@ -728,7 +728,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                     onChange={(v: string) => updateField('requirementDesc', v)} 
                     required 
                     addon={<CompactThreshold value={data.matchThresholdReg} onChange={(v) => updateField('matchThresholdReg', v)} label={t('aiReg', data.language)} icon={<Book size={10} />} />}
-                    language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                    language={data.language}
                     onForceTranslate={() => forceBilingualTranslation?.('requirementDesc')}
                   />
 
@@ -740,10 +740,10 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                     label={t('appearance', data.language)} 
                     value={data.appearance} 
                     onChange={(v: string) => updateField('appearance', v)} 
-                    language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                    language={data.language}
                   />
-                  <SectionEditor label={t('quantity', data.language)} value={data.quantityUnit} onChange={(v: string) => updateField('quantityUnit', v)} isTextArea={false} language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
-                  <SectionEditor label={t('scope', data.language)} value={data.equipmentScope} onChange={(v: string) => updateField('equipmentScope', v)} language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
+                  <SectionEditor label={t('quantity', data.language)} value={data.quantityUnit} onChange={(v: string) => updateField('quantityUnit', v)} isTextArea={false} language={data.language} />
+                  <SectionEditor label={t('scope', data.language)} value={data.equipmentScope} onChange={(v: string) => updateField('equipmentScope', v)} language={data.language} />
                   <SectionEditor 
                     label={t('rangeRange', data.language)} 
                     value={data.rangeRange} 
@@ -754,7 +754,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                     onHintToggle={(id: string) => toggleHint('rangeAIHints', 'rangeRange', id)}
                     onHistoryHintToggle={(id: string) => toggleHint('rangeHistoryHints', 'rangeRange', id)}
                     onRegHintToggle={(id: string) => toggleHint('rangeRegHints', 'rangeRange', id)}
-                    language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                    language={data.language}
                   />
 
                 </div>
@@ -777,7 +777,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                      onHintToggle={(id: string) => toggleHint('envAIHints', 'envRequirements', id)}
                      onHistoryHintToggle={(id: string) => toggleHint('envHistoryHints', 'envRequirements', id)}
                      onRegHintToggle={(id: string) => toggleHint('envRegHints', 'envRequirements', id)}
-                     language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                     language={data.language}
                   />
                   <SectionEditor 
                      label={t('regReq', data.language)} 
@@ -790,7 +790,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                      onHintToggle={(id: string) => toggleHint('regAIHints', 'regRequirements', id)}
                      onHistoryHintToggle={(id: string) => toggleHint('regHistoryHints', 'regRequirements', id)}
                      onRegHintToggle={(id: string) => toggleHint('regRegHints', 'regRequirements', id)}
-                     language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                     language={data.language}
                   />
                   <SectionEditor 
                      label={t('maintReq', data.language)} 
@@ -801,7 +801,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                      searchStatus={data.searchStatus?.['maintHistoryHints'] || 'none'}
                      onHistoryHintToggle={(id: string) => toggleHint('maintHistoryHints', 'maintRequirements', id)}
                      onRegHintToggle={(id: string) => toggleHint('maintRegHints', 'maintRequirements', id)}
-                     language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                     language={data.language}
                   />
                 </div>
 
@@ -816,7 +816,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                      searchStatus={data.safetyHistoryHints ? data.searchStatus['safetyHistoryHints'] : 'none'}
                      onHistoryHintToggle={(id: string) => toggleHint('safetyHistoryHints', 'safetyRequirements', id)}
                      onRegHintToggle={(id: string) => toggleHint('safetyRegHints', 'safetyRequirements', id)}
-                     language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                     language={data.language}
                   />
                 </div>
 
@@ -832,7 +832,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                        searchStatus={data.searchStatus['elecHistoryHints']}
                        onHistoryHintToggle={(id: string) => toggleHint('elecHistoryHints', 'elecSpecs', id)}
                        onRegHintToggle={(id: string) => toggleHint('elecRegHints', 'elecSpecs', id)}
-                       language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                       language={data.language}
                     />
                     <SectionEditor 
                        label={t('mechSpec', data.language)} 
@@ -843,7 +843,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                        searchStatus={data.searchStatus['mechHistoryHints']}
                        onHistoryHintToggle={(id: string) => toggleHint('mechHistoryHints', 'mechSpecs', id)}
                        onRegHintToggle={(id: string) => toggleHint('mechRegHints', 'mechSpecs', id)}
-                       language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                       language={data.language}
                     />
                     <SectionEditor 
                        label={t('physSpec', data.language)} 
@@ -854,7 +854,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                        searchStatus={data.searchStatus['physHistoryHints']}
                        onHistoryHintToggle={(id: string) => toggleHint('physHistoryHints', 'physSpecs', id)}
                        onRegHintToggle={(id: string) => toggleHint('physRegHints', 'physSpecs', id)}
-                       language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                       language={data.language}
                     />
                     <SectionEditor 
                        label={t('relySpec', data.language)} 
@@ -865,7 +865,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                        searchStatus={data.searchStatus['relyHistoryHints']}
                        onHistoryHintToggle={(id: string) => toggleHint('relyHistoryHints', 'relySpecs', id)}
                        onRegHintToggle={(id: string) => toggleHint('relyRegHints', 'relySpecs', id)}
-                       language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                       language={data.language}
                     />
                   </div>
                   {/* V28.x: 適用區間已遷移至基本資訊分頁，此處移除以避免重複 */}
@@ -887,11 +887,11 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                     onHintToggle={(id: string) => toggleHint('installAIHints', 'installStandard', id)}
                     onHistoryHintToggle={(id: string) => toggleHint('installHistoryHints', 'installStandard', id)}
                     onRegHintToggle={(id: string) => toggleHint('installRegHints', 'installStandard', id)}
-                    language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                    language={data.language}
                 />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                  <SectionEditor label={t('finishDate', data.language)} value={data.deliveryDate} onChange={(v: string) => updateField('deliveryDate', v)} isTextArea={false} inputType="date" language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
-                  <SectionEditor label={t('workPeriodDays', data.language)} value={data.workPeriod} onChange={(v: string) => updateField('workPeriod', v)} isTextArea={false} language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
+                  <SectionEditor label={t('finishDate', data.language)} value={data.deliveryDate} onChange={(v: string) => updateField('deliveryDate', v)} isTextArea={false} inputType="date" language={data.language} />
+                  <SectionEditor label={t('workPeriodDays', data.language)} value={data.workPeriod} onChange={(v: string) => updateField('workPeriod', v)} isTextArea={false} language={data.language} />
                 </div>
                 <SectionEditor 
                   label={t('acceptanceDesc', data.language)} 
@@ -904,7 +904,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                   onHintToggle={(id: string) => toggleHint('acceptanceAIHints', 'acceptanceDesc', id)}
                   onHistoryHintToggle={(id: string) => toggleHint('acceptanceHistoryHints', 'acceptanceDesc', id)}
                   onRegHintToggle={(id: string) => toggleHint('acceptanceRegHints', 'acceptanceDesc', id)}
-                  language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                  language={data.language}
                 />
                 <SectionEditor 
                    label={t('compliance', data.language)} 
@@ -917,13 +917,13 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                    onHintToggle={(id: string) => toggleHint('complianceAIHints', 'complianceDesc', id)}
                    onHistoryHintToggle={(id: string) => toggleHint('complianceHistoryHints', 'complianceDesc', id)}
                    onRegHintToggle={(id: string) => toggleHint('complianceRegHints', 'complianceDesc', id)}
-                   language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                   language={data.language}
                 />
                 <SectionEditor 
                    label={t('contractorNotice', data.language)} 
                    value={data.contractorNotice} 
                    onChange={(v: string) => updateField('contractorNotice', v)} 
-                   language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                   language={data.language}
                 />
               </div>
             )}
@@ -934,14 +934,14 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
                 <ImageUpload 
                   images={data.images} 
                   onChange={(imgs) => onChange({ ...data, images: imgs })}
-                  language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                  language={data.language}
                 />
                 <div style={{ marginTop: '2.5rem' }}>
                   <h4 style={{ color: 'white', marginBottom: '1rem' }}>{t('tableAcceptance', data.language)}</h4>
                   <SpecTable 
                     data={data.tableData} 
                     onChange={(td) => onChange({ ...data, tableData: td })}
-                    language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+                    language={data.language}
                   />
                 </div>
               </div>
@@ -951,8 +951,8 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
               <div className="tab-pane">
                 <h3 style={{ marginBottom: '1.5rem', color: 'white' }}>{t('tabSignOffTitle', data.language)}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                  <SectionEditor label={t('requester', data.language)} value={data.applicantName} onChange={(v: string) => updateField('applicantName', v)} isTextArea={false} language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
-                  <SectionEditor label={t('manager', data.language)} value={data.deptHeadName} onChange={(v: string) => updateField('deptHeadName', v)} isTextArea={false} language={data.language === 'th-TH' ? data.primaryLanguage : data.language} />
+                  <SectionEditor label={t('requester', data.language)} value={data.applicantName} onChange={(v: string) => updateField('applicantName', v)} isTextArea={false} language={data.language} />
+                  <SectionEditor label={t('manager', data.language)} value={data.deptHeadName} onChange={(v: string) => updateField('deptHeadName', v)} isTextArea={false} language={data.language} />
                 </div>
                 
                 <div className="doc-section-box">
@@ -1150,7 +1150,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
 
           // V30.6: 遵照使用者要求，若為泰文語系，需保留原始中文於 bilingualCache 以達成「上泰下中」配置
           const bilingualCache: Record<string, string> = {};
-          if (data.language === 'th-TH') {
+          if (data.primaryLanguage !== data.secondaryLanguage) {
             Object.entries(rawImportedData).forEach(([key, value]) => {
               if (STRING_FIELDS.includes(key)) {
                 bilingualCache[key] = formatValue(value);
@@ -1206,7 +1206,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
           };
           onChange(merged);
         }}
-        language={data.language === 'th-TH' ? data.primaryLanguage : data.language}
+        language={data.language}
         secondaryLanguage={data.secondaryLanguage}
       />
 

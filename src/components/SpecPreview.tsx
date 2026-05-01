@@ -59,12 +59,13 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
     '採購部': 'dept_Purchasing'
   };
 
-  const renderBilingualText = (val: string | null | undefined, isAutoNumber = false, cachedZh?: string, status?: 'typing' | 'pending' | 'success' | 'error' | 'cooldown') => {
+  const isBilingual = data.primaryLanguage !== data.secondaryLanguage;
+
+  const renderBilingualText = (val: string | null | undefined, isAutoNumber = false, cachedSecondary?: string, status?: 'typing' | 'pending' | 'success' | 'error' | 'cooldown') => {
     if (!val) return 'NA';
     
-    // V28.x: 格式一致化處理 - 確保不論是否為預設值，渲染結構均保持對齊
+    // V522: 全域雙語化處理 - 支援任意語系配對
     const formatLine = (main: string, sub?: string | React.ReactNode, isStatus = false) => {
-      // 若原文與翻譯完全相同 (例如原文已經是中文)，則隱藏 sub 以避免疊影與冗餘
       const isDuplicate = !isStatus && typeof sub === 'string' && sub.trim() === main.trim();
       return (
         <div style={{ marginBottom: '4px' }}>
@@ -79,10 +80,10 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
     };
 
     if (val.startsWith('default')) {
-      const mainText = data.language === 'th-TH' ? t(val, data.primaryLanguage) : t(val, data.language);
+      const mainText = t(val, data.primaryLanguage);
       const processedMain = isAutoNumber ? processAutoNumbering(mainText) : mainText;
       
-      if (data.language === 'th-TH') {
+      if (isBilingual) {
         const secText = t(val, data.secondaryLanguage);
         const processedSec = isAutoNumber ? processAutoNumbering(secText) : secText;
         
@@ -98,16 +99,9 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
       return <div style={{ whiteSpace: 'pre-wrap' }}>{processedMain}</div>;
     }
 
-    // 針對非預設文字 (使用者手動輸入)
     const content = isAutoNumber ? processAutoNumbering(val) : val;
     
-    if (data.language === 'th-TH') {
-      const hasThaiSource = /[\u0E00-\u0E7F]/.test(content);
-      if (!hasThaiSource) {
-        return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
-      }
-
-      // V29.x: 狀態提示
+    if (isBilingual) {
       if (status === 'cooldown') {
         const mainLines = content.split('\n');
         return (
@@ -133,13 +127,12 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
         );
       }
 
-      // V28.x: 增加內容相同判定 (加入 trim 防止空格干擾)，防止 AI 翻譯失敗回傳原文時出現「泰文+泰文」的冗餘
-      if (cachedZh && cachedZh.trim() !== content.trim()) {
+      if (cachedSecondary && cachedSecondary.trim() !== content.trim()) {
         const mainLines = content.split('\n');
-        const zhLines = cachedZh.split('\n');
+        const secLines = cachedSecondary.split('\n');
         return (
           <div className="bilingual-block">
-            {mainLines.map((line: string, i: number) => formatLine(line, zhLines[i]))}
+            {mainLines.map((line: string, i: number) => formatLine(line, secLines[i]))}
           </div>
         );
       }
@@ -149,13 +142,13 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
   };
 
   const renderBilingualLabel = (key: string) => {
-    if (data.language === 'th-TH') {
+    if (isBilingual) {
       return (
         <span style={{ display: 'inline-block' }}>
-          <span>{t(key, data.language)}</span>
+          <span>{t(key, data.primaryLanguage)}</span>
           <br />
           <span style={{ color: '#666', fontSize: '0.85em', fontWeight: 'normal' }}>
-            {t(key, 'zh-TW')}
+            {t(key, data.secondaryLanguage)}
           </span>
         </span>
       );
@@ -170,7 +163,7 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
       {/* Header */}
       <div style={{ borderBottom: '2.5px solid black', paddingBottom: '0.8rem', marginBottom: '1.2rem', position: 'relative' }}>
         <h1 style={{ textAlign: 'center', margin: '0', fontSize: '20pt' }}>
-          {data.language === 'th-TH' ? 'Taiwan Union Technology (THAILAND) CO., LTD.' : t('docCompanyName', data.language)}
+          {t('docCompanyName', data.language)}
         </h1>
         {data.language !== 'th-TH' && (
           <h2 style={{ textAlign: 'center', margin: '0 0 0.4rem', fontSize: '14pt', fontWeight: 'normal' }}>

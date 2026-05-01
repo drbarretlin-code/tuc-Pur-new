@@ -49,8 +49,8 @@ const SectionEditor: React.FC<Props> = ({
       }}>
         <span>{label} {required && <span style={{ color: 'var(--tuc-red)' }}>*</span>}</span>
         
-        {/* V30.3: 雙語狀態標籤 */}
-        {language === 'th-TH' && !safeValue.startsWith('default') && /[\u0E00-\u0E7F]/.test(safeValue) && (
+        {/* V522: 全域雙語狀態標籤 - 只要有狀態就顯示 */}
+        {bilingualStatus && !safeValue.startsWith('default') && (
           <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem' }}>
             {bilingualStatus === 'pending' ? (
               <span style={{ color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>

@@ -440,7 +440,7 @@ function App() {
   // V30.3: 手動/意圖觸發之全量雙語同步
   const [isSyncingBilingual, setIsSyncingBilingual] = useState(false);
   const handleBilingualSync = async (force: boolean = false) => {
-    if (data.language !== 'th-TH') return;
+    if (data.primaryLanguage === data.secondaryLanguage) return; // V522: 只有在主副語系不同時啟動同步
     if (isSyncingBilingual) return;
 
     // V521: 預填靜態 Boilerplate 字典，避免重複 AI 轉譯消耗
@@ -493,7 +493,7 @@ function App() {
         return;
       }
 
-      if (val.startsWith('default') || !/[\u0E00-\u0E7F]/.test(val)) return;
+      if (val.startsWith('default')) return;
       
       const cachedSrc = data.bilingualCache[`${k}_src`];
       if (force || cachedSrc !== val) {
@@ -573,10 +573,10 @@ function App() {
 
   // V30.3: 當進入預覽分頁時，自動檢查並同步（確保導出時必有雙語）
   useEffect(() => {
-    if ((mobileAppTab === 'preview' || splitPercentage < 20) && data.language === 'th-TH') {
+    if ((mobileAppTab === 'preview' || splitPercentage < 20) && data.primaryLanguage !== data.secondaryLanguage) {
       handleBilingualSync();
     }
-  }, [mobileAppTab, splitPercentage, data.language]);
+  }, [mobileAppTab, splitPercentage, data.primaryLanguage, data.secondaryLanguage]);
 
   // V30: 手動強制重新轉譯指定欄位
   const forceBilingualTranslation = (fieldKey: keyof FormState) => {
@@ -1480,8 +1480,8 @@ function App() {
     );
   };
 
-  // V29.x: 增強容錯邏輯 - 如果 translatedCloudFiles 尚未產出 (例如 429 失敗)，則降級使用 cloudFiles (繁體中文)，確保清單不為空
-  const activeFileList = (data.language === 'th-TH' && translatedCloudFiles.length > 0) ? translatedCloudFiles : cloudFiles;
+  // V29.x: 增強容錯邏輯 - 如果 translatedCloudFiles 尚未產出，則降級使用 cloudFiles (繁體中文)
+  const activeFileList = (data.language !== 'zh-TW' && translatedCloudFiles.length > 0) ? translatedCloudFiles : cloudFiles;
   
   const filteredFiles = activeFileList.filter(f => {
     const nameToSearch = f.display_name || f.original_name || '';
@@ -1511,82 +1511,63 @@ function App() {
             TUC
           </div>
           <div>
-            {!isMobile && <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
-              {t('systemSubtitle', data.language)} v520.1
-            </p>}
+            {!isMobile && (
+              <>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                  {t('docCompanyName', data.language)}
+                </p>
+                <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                  {t('systemSubtitle', data.language)} v522.1
+                </p>
+              </>
+            )}
           </div>
         </div>
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {/* V16: 語系選擇器 */}
           {/* V16: 語系選擇器 */}
-          <div className="lang-selector-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', borderRadius: '6px', padding: '2px 8px' }}>
-            {data.language !== 'th-TH' ? (
-              <>
-                <span style={{ fontSize: '0.75rem', color: '#888', marginRight: '6px' }}>{t('languageLabel', data.language)}</span>
-                <select
-                  value={data.language}
-                  onChange={(e) => {
-                    const newLang = e.target.value as Language;
-                    setData(prev => ({ 
-                      ...prev, 
-                      language: newLang,
-                      primaryLanguage: newLang === 'th-TH' ? 'th-TH' : newLang,
-                      secondaryLanguage: newLang === 'th-TH' ? 'zh-TW' : newLang
-                    }));
-                  }}
-                  className="lang-select"
-                  aria-label="Select Language"
-                >
-                  <option value="zh-TW">🇹🇼 繁體中文</option>
-                  <option value="zh-CN">🇨🇳 简体中文</option>
-                  <option value="en-US">🇺🇸 English</option>
-                  <option value="th-TH">🇹🇭 ภาษาไทย</option>
-                </select>
-              </>
-            ) : (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--tuc-red)', fontWeight: 'bold', width: '24px' }}>TOP</span>
-                    <select
-                      value={data.primaryLanguage}
-                      onChange={(e) => setData(prev => ({ ...prev, primaryLanguage: e.target.value as Language }))}
-                      style={{ background: 'none', border: 'none', color: 'white', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="th-TH">🇹🇭 TH</option>
-                      <option value="zh-TW">🇹🇼 TW</option>
-                      <option value="zh-CN">🇨🇳 CN</option>
-                      <option value="en-US">🇺🇸 EN</option>
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '2px' }}>
-                    <span style={{ fontSize: '0.6rem', color: '#888', width: '24px' }}>BTM</span>
-                    <select
-                      value={data.secondaryLanguage}
-                      onChange={(e) => setData(prev => ({ ...prev, secondaryLanguage: e.target.value as Language }))}
-                      style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="zh-TW">🇹🇼 TW</option>
-                      <option value="zh-CN">🇨🇳 CN</option>
-                      <option value="en-US">🇺🇸 EN</option>
-                      <option value="th-TH">🇹🇭 TH</option>
-                    </select>
-                  </div>
+          <div className="lang-selector-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '4px 10px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.6rem', color: 'var(--tuc-red)', fontWeight: 'bold', width: '24px' }}>UI</span>
+                  <select
+                    value={data.language}
+                    onChange={(e) => {
+                      const newLang = e.target.value as Language;
+                      setData(prev => ({ 
+                        ...prev, 
+                        language: newLang,
+                        primaryLanguage: newLang // V522: 切換介面時預設主語系跟隨
+                      }));
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'white', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="zh-TW">🇹🇼 TW</option>
+                    <option value="zh-CN">🇨🇳 CN</option>
+                    <option value="en-US">🇺🇸 EN</option>
+                    <option value="th-TH">🇹🇭 TH</option>
+                  </select>
                 </div>
-                {/* 讓泰文模式下點擊 TUC LOGO 或是某處可以換回其他介面語系？暫時保留原本的介面選擇邏輯 */}
-                <button 
-                  onClick={() => setData(prev => ({ ...prev, language: 'zh-TW' }))}
-                  style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.65rem', cursor: 'pointer', padding: '0 4px' }}
-                  title="Switch UI Language"
-                >
-                  ✕
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '2px' }}>
+                  <span style={{ fontSize: '0.6rem', color: '#888', width: '24px' }}>BTM</span>
+                  <select
+                    value={data.secondaryLanguage}
+                    onChange={(e) => setData(prev => ({ ...prev, secondaryLanguage: e.target.value as Language }))}
+                    style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="zh-TW">🇹🇼 TW</option>
+                    <option value="zh-CN">🇨🇳 CN</option>
+                    <option value="en-US">🇺🇸 EN</option>
+                    <option value="th-TH">🇹🇭 TH</option>
+                  </select>
+                </div>
               </div>
-            )}
+            </div>
 
-            {/* V30.3: 雙語同步手動按鈕 (僅泰文模式顯示) */}
-            {data.language === 'th-TH' && (
+            {/* V30.3: 雙語同步手動按鈕 (全語系開放) */}
+            {data.primaryLanguage !== data.secondaryLanguage && (
               <button
                 onClick={() => handleBilingualSync(true)}
                 disabled={isSyncingBilingual}

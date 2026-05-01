@@ -66,7 +66,7 @@ export function getGeminiKeyPool(): string[] {
   
   // 遍歷所有可能的來源並進行分割
   const allRaw = [activeKey, poolStr, legacyKey, envKey1, envKey2].join(',');
-  const keys = allRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k);
+  const keys = allRaw.split(/[,，\n;；]/).map(k => k.trim()).filter(k => k);
   
   return Array.from(new Set(keys));
 }
@@ -167,7 +167,7 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
 
         trackGeminiUsage(mId); 
         cachedModelId = mId;
-        localStorage.setItem('tuc_gemini_key', currentKey);
+        // localStorage.setItem('tuc_gemini_key', currentKey); // V522: 移除覆寫邏輯，避免金鑰池被單一金鑰取代
         try { sessionStorage.setItem('tuc_model_cache', JSON.stringify({ modelId: mId, apiKey: currentKey, ts: Date.now() })); } catch {}
         console.log(`[AI Discovery] 試驗成功！鎖定可用模型 ${mId} (金鑰索引: ${i})。`);
         return { modelId: mId, apiKey: currentKey };

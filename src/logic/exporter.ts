@@ -66,31 +66,32 @@ export const exportToWord = async (data: FormState, lang: Language) => {
 
   const dateStr = formatDateObj(now);
 
+  const isBilingual = data.primaryLanguage !== data.secondaryLanguage;
+
   const vStr = (text: string | null | undefined, fieldKey?: keyof FormState) => {
     if (!text) return 'NA';
     if (text.startsWith('default')) {
-      if (lang === 'th-TH') {
+      if (isBilingual) {
         return `${t(text, data.primaryLanguage)}\n${t(text, data.secondaryLanguage)}`;
       }
-      return t(text, lang);
+      return t(text, data.primaryLanguage);
     }
-    if (lang === 'th-TH') {
-      // Find the key in FormState that matches this text to lookup the cache
-      // Since exporter doesn't always pass the key, we search for the key whose value matches the text
+    if (isBilingual) {
+      // V522: 全域雙語化匯出
       let matchedKey: string | undefined = fieldKey;
       if (!matchedKey) {
         matchedKey = Object.keys(data).find(k => data[k as keyof FormState] === text);
       }
-      const zhTranslation = matchedKey ? data.bilingualCache?.[matchedKey] : undefined;
-      if (zhTranslation) {
-        return `${text}\n${zhTranslation}`;
+      const secondaryTranslation = matchedKey ? data.bilingualCache?.[matchedKey] : undefined;
+      if (secondaryTranslation && secondaryTranslation.trim() !== text.trim()) {
+        return `${text}\n${secondaryTranslation}`;
       }
     }
     return text;
   };
 
   const lStr = (key: string) => {
-    if (lang === 'th-TH') {
+    if (isBilingual) {
       return `${t(key, data.primaryLanguage)}\n${t(key, data.secondaryLanguage)}`;
     }
     return t(key, lang);
@@ -100,7 +101,7 @@ export const exportToWord = async (data: FormState, lang: Language) => {
     const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
     if (lines.length === 0) return [new Paragraph({ text: 'NA', spacing: { after: lastSpacingAfter } })];
     return lines.map((l, i) => {
-      const isZh = lang === 'th-TH' && /[一-龥]/.test(l);
+      const isZh = isBilingual && /[一-龥]/.test(l);
       return new Paragraph({ 
         children: [new TextRun({ text: l, color: isZh ? "666666" : undefined, size: isZh ? 18 : undefined })], 
         spacing: { after: i === lines.length - 1 ? lastSpacingAfter : spacingAfter } 
@@ -111,7 +112,7 @@ export const exportToWord = async (data: FormState, lang: Language) => {
   const createTextRuns = (text: string, bold = false, size?: number) => {
     const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
     return lines.map((l, i) => {
-      const isZh = lang === 'th-TH' && /[一-龥]/.test(l);
+      const isZh = isBilingual && /[一-龥]/.test(l);
       const targetSize = isZh ? (size ? Math.floor(size * 0.85) : 18) : size;
       return new TextRun({ text: l, bold: isZh ? false : bold, break: i > 0 ? 1 : 0, color: isZh ? "666666" : undefined, size: targetSize });
     });
@@ -323,7 +324,7 @@ export const exportToWord = async (data: FormState, lang: Language) => {
     },
     sections: [{
       children: [
-        new Paragraph({ text: lang === 'th-TH' ? 'Taiwan Union Technology (THAILAND) CO., LTD.' : t('docCompanyName', lang), style: "TUCMainTitle" }),
+        new Paragraph({ text: t('docCompanyName', lang), style: "TUCMainTitle" }),
         ...(lang !== 'th-TH' ? [new Paragraph({ text: t('docCompanyEnglish', lang), style: "TUCCenter", spacing: { after: 200 } })] : []),
         new Paragraph({ 
           children: [new TextRun({ text: t('docTitle', lang), bold: true, size: 36, underline: { color: "000000" } })], 
