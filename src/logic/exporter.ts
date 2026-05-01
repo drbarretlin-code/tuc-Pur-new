@@ -1,0 +1,367 @@
+import { 
+  Document, 
+  Packer, 
+  Paragraph, 
+  TextRun, 
+  Table, 
+  TableCell, 
+  TableRow, 
+  WidthType, 
+  HeadingLevel, 
+  AlignmentType, 
+  BorderStyle, 
+  VerticalAlign,
+  PageBreak 
+} from 'docx';
+import type { FormState } from '../types/form';
+import { t } from '../lib/i18n';
+import type { Language } from '../lib/i18n';
+import { getFullSpecName, processAutoNumbering } from './specGenerator';
+
+export const exportToPDF = async (data: FormState) => {
+  // 對於高品質、可搜尋、且具有完美分頁邏輯的需求，呼叫瀏覽器原生列印對話框是最穩定的方案。
+  // 若傳入的 data 與當前語系不同，表示為即時轉譯版本。
+  
+  // 保存原標題
+  const originalTitle = document.title;
+  const timestamp = new Date().getTime();
+  const filename = `${data.equipmentName || 'TUC_Spec'}_${timestamp}`;
+  
+  // 設定列印時的檔名 (透過修改 document.title)
+  document.title = filename;
+
+  // 執行列印
+  window.print();
+
+  // 恢復原標題
+  setTimeout(() => {
+    document.title = originalTitle;
+  }, 1000);
+};
+
+const formatDate = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${y}${m}${d}_${h}${min}${s}`;
+};
+
+export const exportToWord = async (data: FormState, lang: Language) => {
+  const timestamp = formatDate(new Date());
+  const filename = `${data.equipmentName || 'TUC_Spec'}_${timestamp}`;
+  const hasImages = data.images.length > 0;
+
+  const now = new Date();
+  const formatDateObj = (d: string | Date | undefined) => {
+    if (!d) return 'NA';
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (isNaN(date.getTime())) return d as string;
+    const targetLang = (lang === 'th-TH' ? data.primaryLanguage : lang);
+    const locale = targetLang === 'th-TH' ? 'th-TH-u-ca-buddhist' : (targetLang === 'en-US' ? 'en-US' : (targetLang === 'zh-CN' ? 'zh-CN' : 'zh-TW'));
+    return date.toLocaleDateString(locale);
+  };
+
+  const dateStr = formatDateObj(now);
+
+  const vStr = (text: string | null | undefined, fieldKey?: keyof FormState) => {
+    if (!text) return 'NA';
+    if (text.startsWith('default')) {
+      if (lang === 'th-TH') {
+        return `${t(text, data.primaryLanguage)}\n${t(text, data.secondaryLanguage)}`;
+      }
+      return t(text, lang);
+    }
+    if (lang === 'th-TH') {
+      // Find the key in FormState that matches this text to lookup the cache
+      // Since exporter doesn't always pass the key, we search for the key whose value matches the text
+      let matchedKey: string | undefined = fieldKey;
+      if (!matchedKey) {
+        matchedKey = Object.keys(data).find(k => data[k as keyof FormState] === text);
+      }
+      const zhTranslation = matchedKey ? data.bilingualCache?.[matchedKey] : undefined;
+      if (zhTranslation) {
+        return `${text}\n${zhTranslation}`;
+      }
+    }
+    return text;
+  };
+
+  const lStr = (key: string) => {
+    if (lang === 'th-TH') {
+      return `${t(key, data.primaryLanguage)}\n${t(key, data.secondaryLanguage)}`;
+    }
+    return t(key, lang);
+  };
+
+  const createMultilineParagraphs = (text: string, spacingAfter = 40, lastSpacingAfter = 200) => {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
+    if (lines.length === 0) return [new Paragraph({ text: 'NA', spacing: { after: lastSpacingAfter } })];
+    return lines.map((l, i) => {
+      const isZh = lang === 'th-TH' && /[一-龥]/.test(l);
+      return new Paragraph({ 
+        children: [new TextRun({ text: l, color: isZh ? "666666" : undefined, size: isZh ? 18 : undefined })], 
+        spacing: { after: i === lines.length - 1 ? lastSpacingAfter : spacingAfter } 
+      });
+    });
+  };
+
+  const createTextRuns = (text: string, bold = false, size?: number) => {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
+    return lines.map((l, i) => {
+      const isZh = lang === 'th-TH' && /[一-龥]/.test(l);
+      const targetSize = isZh ? (size ? Math.floor(size * 0.85) : 18) : size;
+      return new TextRun({ text: l, bold: isZh ? false : bold, break: i > 0 ? 1 : 0, color: isZh ? "666666" : undefined, size: targetSize });
+    });
+  };
+
+  const bodyContent = [
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(`${lStr('docSection1')} ${getFullSpecName(data)}`, true)] }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('reqDesc')}：`, true)] }),
+    ...createMultilineParagraphs(data.requirementDesc || 'NA'),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection2'), true)] }),
+    ...createMultilineParagraphs(vStr(data.appearance), 40, 200),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(`${lStr('docSection3')} ${vStr(data.quantityUnit)}`, true)], spacing: { after: 200 } }),
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection4'), true)] }),
+    new Paragraph({ children: [...createTextRuns(vStr(data.equipmentName))], spacing: { after: 200 } }),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection5'), true)] }),
+    ...createMultilineParagraphs(vStr(data.rangeRange), 40, 200),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection6'), true)] }),
+    new Paragraph({ children: [...createTextRuns(lStr('docSub6_1'), true), new TextRun({ text: " " }), ...createTextRuns(vStr(data.envRequirements))] }),
+    new Paragraph({ children: [...createTextRuns(lStr('docSub6_2'), true), new TextRun({ text: " " }), ...createTextRuns(vStr(data.regRequirements))] }),
+    new Paragraph({ children: [...createTextRuns(lStr('docSub6_3'), true), new TextRun({ text: " " }), ...createTextRuns(vStr(data.maintRequirements))], spacing: { after: 200 } }),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection7'), true)] }),
+    ...createMultilineParagraphs(vStr(data.safetyRequirements), 40, 200),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection8'), true)], spacing: { after: 100 } }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub8_1')} ${vStr(data.elecSpecs)}`)] }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub8_2')} ${vStr(data.mechSpecs)}`)] }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub8_3')} ${vStr(data.physSpecs)}`)] }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub8_4')} ${vStr(data.relySpecs)}`)], spacing: { after: 200 } }),
+    
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection9'), true)], spacing: { before: 200, after: 100 } }),
+    ...createMultilineParagraphs(processAutoNumbering(vStr(data.installStandard)), 40, 40),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub9_date')} ${formatDateObj(data.deliveryDate)} | ${lStr('docSub9_period')} ${data.workPeriod || 'NA'}`, true)], spacing: { before: 100, after: 100 } }),
+    new Paragraph({ children: [...createTextRuns(`${lStr('docSub9_acceptance')} `, true), ...createTextRuns(vStr(data.acceptanceDesc))], spacing: { after: 200 } }),
+    new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection10'), true)], spacing: { before: 200, after: 100 } }),
+    ...createMultilineParagraphs(processAutoNumbering(vStr(data.complianceDesc)), 40, 40),
+    
+    
+    // 廠商注意事項 (A4 直向整頁)
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ 
+      heading: HeadingLevel.HEADING_4, 
+      children: [...createTextRuns(lStr('contractorNotice'), true, 28)],
+      spacing: { before: 200, after: 200 }
+    }),
+    ...createMultilineParagraphs(vStr(data.contractorNotice), 40, 0),
+  ];
+
+  const optionalSections: (Paragraph | Table)[] = [];
+  if (hasImages) {
+    optionalSections.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection11'), true)], spacing: { before: 400 } }),
+      new Paragraph({ children: [...createTextRuns(lStr('docImgNote'))] }),
+      new Paragraph({ heading: HeadingLevel.HEADING_4, children: [...createTextRuns(lStr('docSection12'), true)], spacing: { before: 400, after: 200 } }),
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblCat'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblItem'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblSpec'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblMethod'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblCount'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(lStr('docTblConfirm'), true)], alignment: AlignmentType.CENTER })], shading: { fill: "F5F5F5" } }),
+            ]
+          }),
+          ...data.tableData.map((row, i) => new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.category, `tableData_${i}_category` as any))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.item, `tableData_${i}_item` as any))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.spec, `tableData_${i}_spec` as any))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.method, `tableData_${i}_method` as any))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.samples, `tableData_${i}_samples` as any))], alignment: AlignmentType.CENTER })] }),
+              new TableCell({ children: [new Paragraph({ children: [...createTextRuns(vStr(row.confirmation, `tableData_${i}_confirmation` as any))], alignment: AlignmentType.CENTER })] }),
+            ]
+          }))
+        ]
+      })
+    );
+  }
+
+  // V9.9: 規格確認及會簽表格重構已移至下方 infoTable 之後，此處僅保留邏輯佔位符以進行結構替換
+
+  // V9.9: 修復頂部資訊列表擠壓 (DXA 為單位，總長約 9066)
+  const infoTable = new Table({
+    width: { size: 9066, type: WidthType.DXA },
+    columnWidths: [3022, 3022, 3022],
+    borders: {
+      top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
+      left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+      insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE }
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${t('docDept', lang)}${data.department || 'NA'}`, size: 20 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${t('docRequester', lang)}${data.requester || 'NA'} (${data.extension || ''})`, size: 20 })], alignment: AlignmentType.CENTER })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${t('docDate', lang)}${dateStr}`, size: 20 })], alignment: AlignmentType.RIGHT })] }),
+        ]
+      })
+    ]
+  });
+
+  // V9.9: 重構規格確認及會簽表格 (符合打勾圖示格式)
+  // Grid: 6 columns
+  const colSize = Math.floor(9066 / 6);
+  
+  const deptKeyMap: Record<string, string> = {
+    '生產部': 'dept_Production',
+    '工程部': 'dept_Engineering',
+    '工安部': 'dept_Safety',
+    '設備部': 'dept_Equipment',
+    '品保部': 'dept_Quality',
+    '研發部': 'dept_RD',
+    'PRD': 'dept_PRD',
+    '採購部': 'dept_Purchasing'
+  };
+
+  const signOffTable = new Table({
+    width: { size: 9066, type: WidthType.DXA },
+    columnWidths: [colSize, colSize, colSize, colSize, colSize, colSize],
+    rows: [
+      // Row 1: 申請人(1) | 姓名(2) | 申請單位主管(1) | 姓名(2)
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({ 
+            children: [new Paragraph({ children: [new TextRun({ text: t('docSignApplicant', lang), bold: true })], alignment: AlignmentType.CENTER })], 
+            shading: { fill: "F5F5F5" }, verticalAlign: VerticalAlign.CENTER 
+          }),
+          new TableCell({ 
+            children: [new Paragraph({ text: data.applicantName, alignment: AlignmentType.CENTER })], 
+            columnSpan: 2, verticalAlign: VerticalAlign.CENTER 
+          }),
+          new TableCell({ 
+            children: [new Paragraph({ children: [new TextRun({ text: t('docSignDeptHead', lang), bold: true })], alignment: AlignmentType.CENTER })], 
+            shading: { fill: "F5F5F5" }, verticalAlign: VerticalAlign.CENTER 
+          }),
+          new TableCell({ 
+            children: [new Paragraph({ text: data.deptHeadName, alignment: AlignmentType.CENTER })], 
+            columnSpan: 2, verticalAlign: VerticalAlign.CENTER 
+          }),
+        ]
+      }),
+      // Rows 2-4: 左側 4 欄為 Grid，右側 2 欄垂直合併為「廠商確認」
+      ...[0, 1, 2].map(rowIndex => {
+        const rowData = data.signOffGrid[rowIndex] || ["", "", "", "", "", ""];
+        const cells = [
+          // 左側 4 欄
+          ...[0, 1, 2, 3].map(colIndex => {
+            const isDropdown = colIndex === 0 || colIndex === 2;
+            const cellValue = rowData[colIndex] || "";
+            const runs = (isDropdown && deptKeyMap[cellValue]) 
+              ? createTextRuns(lStr(deptKeyMap[cellValue]), false, 18) 
+              : [new TextRun({ text: cellValue, size: 18 })];
+              
+            return new TableCell({
+              children: [new Paragraph({ children: runs, alignment: AlignmentType.CENTER })],
+              verticalAlign: VerticalAlign.CENTER,
+              width: { size: colSize, type: WidthType.DXA }
+            });
+          }),
+          // 右側 2 欄 (垂直合併)
+          new TableCell({
+            children: rowIndex === 0 ? [new Paragraph({ children: [new TextRun({ text: t('docSignVendor', lang), bold: true })], alignment: AlignmentType.CENTER })] : [new Paragraph({ text: "" })],
+            columnSpan: 2,
+            verticalMerge: rowIndex === 0 ? "restart" : "continue" as any,
+            shading: rowIndex === 0 ? { fill: "F5F5F5" } : undefined,
+            verticalAlign: VerticalAlign.CENTER
+          })
+        ];
+        return new TableRow({ cantSplit: true, children: cells });
+      })
+    ]
+  });
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: "Microsoft JhengHei", size: 22 }
+        }
+      },
+      paragraphStyles: [
+        {
+          id: "TUCMainTitle",
+          name: "TUC Main Title",
+          basedOn: "Normal",
+          next: "Normal",
+          run: { size: 40, bold: true, font: "Microsoft JhengHei" },
+          paragraph: { alignment: AlignmentType.CENTER, spacing: { before: 0, after: 50 } }
+        },
+        {
+          id: "TUCCenter",
+          name: "TUC Center",
+          basedOn: "Normal",
+          next: "Normal",
+          run: { size: 22, font: "Microsoft JhengHei" },
+          paragraph: { alignment: AlignmentType.CENTER }
+        }
+      ]
+    },
+    sections: [{
+      children: [
+        new Paragraph({ text: lang === 'th-TH' ? 'Taiwan Union Technology (THAILAND) CO., LTD.' : t('docCompanyName', lang), style: "TUCMainTitle" }),
+        ...(lang !== 'th-TH' ? [new Paragraph({ text: t('docCompanyEnglish', lang), style: "TUCCenter", spacing: { after: 200 } })] : []),
+        new Paragraph({ 
+          children: [new TextRun({ text: t('docTitle', lang), bold: true, size: 36, underline: { color: "000000" } })], 
+          style: "TUCCenter", 
+          spacing: { before: 100, after: 200 } 
+        }),
+        infoTable,
+        new Paragraph({ text: "", spacing: { after: 200 } }),
+        ...bodyContent,
+        ...optionalSections,
+        new Paragraph({ 
+          children: [new TextRun({ text: t('docSignTitle', lang), bold: true })], 
+          style: "TUCCenter", 
+          spacing: { before: 400, after: 200 } 
+        }),
+        signOffTable,
+        new Paragraph({ 
+          children: [new TextRun({ text: t('docBottomNote1', lang), color: "E60012", size: 18, bold: true })], 
+          spacing: { before: 400, after: 100 } 
+        }),
+        new Paragraph({ 
+          children: [
+            new TextRun({ text: `${t('docBottomNote2', lang)}  `, size: 22 }),
+            new TextRun({ text: data.needsDrawing === 'YES' ? `☑${t('yes', lang)}` : `□${t('yes', lang)}`, size: 22 }),
+            new TextRun({ text: "    ", size: 22 }),
+            new TextRun({ text: data.needsDrawing === 'NO' ? `☑${t('no', lang)}` : `□${t('no', lang)}`, size: 22 })
+          ], 
+          spacing: { after: 200 } 
+        })
+      ]
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.docx`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+};

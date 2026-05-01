@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TUC 智能採購規格與知識庫系統 - 整合 Gemini AI 技術，實現極致知識挖掘、自動規格解析與全球多語系同步，助力標準化採購流程。" />
+    <meta name="keywords" content="TUC, 採購規格, 知識庫, AI 解析, Gemini, 設備規範, 多語系" />
+    <meta name="author" content="Dr. Barret Lin" />
+    <meta property="og:title" content="TUC 智能採購規格與知識庫系統" />
+    <meta property="og:description" content="整合 Gemini AI 技術的企業級採購規格自動化平台。" />
+    <meta property="og:type" content="website" />
+    <title>TUC 智能採購規格與知識庫系統</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.body.innerHTML += '<div style="color:red; background:white; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; padding:20px; overflow:auto;"><h2>JS Error</h2><pre>' + e.error?.stack + '</pre></div>';
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        document.body.innerHTML += '<div style="color:red; background:white; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; padding:20px; overflow:auto;"><h2>Promise Error</h2><pre>' + e.reason?.stack + '</pre></div>';
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
