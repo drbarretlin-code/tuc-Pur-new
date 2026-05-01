@@ -86,7 +86,7 @@ export function getGeminiKeyPool(): string[] {
 
 export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<{ modelId: string; apiKey: string } | null> {
   const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
-  console.log(`[AI Discovery] 啟動瀑布式偵測 (Waterfall V3.1)，金鑰池總數: ${keys.length}`);
+  console.log(`[AI Discovery] 啟動瀑布式偵測 (Waterfall V3.2)，金鑰池總數: ${keys.length}`);
 
   const activeKey = localStorage.getItem('tuc_gemini_key') || (Array.isArray(apiKeys) ? apiKeys[0] : apiKeys);
   if (cachedModelId && activeKey) return { modelId: cachedModelId, apiKey: activeKey };
@@ -113,13 +113,13 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
   if (!(globalThis as any)._TUC_RPD_EXHAUSTED_SET) (globalThis as any)._TUC_RPD_EXHAUSTED_SET = new Set<string>();
   const rpdExhaustedSet: Set<string> = (globalThis as any)._TUC_RPD_EXHAUSTED_SET;
 
-  // V30.4: 2026-04 官方可用模型清單 (旗艦 -> 穩定 -> 輕量)
+  // V32.0: 2026-05 最佳化模型清單 (驗證可用性優先)
   const priorityList = [
+    'gemini-2.5-flash',          // 已驗證最穩定版本
     'gemini-3.1-flash',          // 旗艦 Flash (1M Context)
     'gemini-3.0-flash',          // 穩定 Flash
-    'gemini-2.5-flash',          // 備選 Flash
-    'gemini-3.1-flash-lite',     // 輕量首選 (極速)
-    'gemini-2.5-flash-lite',     // 輕量備選
+    'gemini-2.5-flash-lite',     // 輕量首選 (極速)
+    'gemini-2.0-flash',          // 經典穩定版
     'gemini-3.1-pro',            // 高精度 Pro (配額較緊)
   ];
 
@@ -239,6 +239,7 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
 
         const isKeyError = 
           status === 401 || 
+          status === 403 || // V3.2: 增加 403 Forbidden 判定，通常為專案未啟動或 IP 限制
           errMsg.includes('API key expired') || 
           errMsg.includes('API_KEY_INVALID') ||
           (status === 400 && (errMsg.includes('API key') || errMsg.includes('key is not valid')));

@@ -1,4 +1,4 @@
--- 終極整合版 Supabase 初始化腳本
+-- 終極整合版 Supabase 初始化腳本 V2.0
 -- 安全執行，不會報錯
 
 -- 1. 建立所有核心資料表
@@ -63,6 +63,8 @@ CREATE TABLE IF NOT EXISTS public.tuc_usage_stats (
 ALTER TABLE public.tuc_usage_stats ADD COLUMN IF NOT EXISTS gemini_rpd_today INTEGER DEFAULT 0;
 ALTER TABLE public.tuc_usage_stats ADD COLUMN IF NOT EXISTS gemini_rpm_current INTEGER DEFAULT 0;
 ALTER TABLE public.tuc_usage_stats ADD COLUMN IF NOT EXISTS gemini_rpm_last_update TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE public.tuc_usage_stats ADD COLUMN IF NOT EXISTS qstash_calls_today INTEGER DEFAULT 0;
+ALTER TABLE public.tuc_usage_stats ADD COLUMN IF NOT EXISTS estimated_egress_bytes BIGINT DEFAULT 0;
 
 -- 2. 建立儲存桶 (Bucket)
 INSERT INTO storage.buckets (id, name, public) 
@@ -114,6 +116,26 @@ LANGUAGE sql STABLE AS $$
   GROUP BY source_file_name;
 $$;
 
+-- 修復：新增 QStash 用量統計遞增函式
+CREATE OR REPLACE FUNCTION increment_qstash_usage(bytes_count BIGINT DEFAULT 0, model_name TEXT DEFAULT NULL)
+RETURNS void AS $$
+DECLARE
+    today_date DATE := (timezone('utc'::text, now()))::date;
+BEGIN
+    INSERT INTO public.tuc_usage_stats (stat_date, qstash_calls_today, estimated_egress_bytes, last_ai_model)
+    VALUES (today_date, 0, 0, model_name)
+    ON CONFLICT (stat_date) DO NOTHING;
+
+    UPDATE public.tuc_usage_stats
+    SET 
+        qstash_calls_today = COALESCE(qstash_calls_today, 0) + 1,
+        estimated_egress_bytes = COALESCE(estimated_egress_bytes, 0) + bytes_count,
+        last_ai_model = COALESCE(model_name, last_ai_model)
+    WHERE stat_date = today_date;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 修復：新增 Gemini 用量統計遞增函式
 CREATE OR REPLACE FUNCTION increment_gemini_usage(p_model_name TEXT DEFAULT NULL)
 RETURNS void AS $$
 DECLARE
@@ -142,6 +164,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+GRANT EXECUTE ON FUNCTION public.increment_qstash_usage(BIGINT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.increment_gemini_usage(TEXT) TO anon, authenticated;
 
 -- 強制刷新快取
