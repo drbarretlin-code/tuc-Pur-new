@@ -845,27 +845,42 @@ function App() {
     setIsCleaning(true);
 
     try {
-      const fileNames = toDelete.map(f => f.name);
+      const storagePaths = toDelete.map(f => f.name);
+      
+      // 找出真實的 original_name，用於清理知識庫
+      const originalNames = toDelete.map(f => {
+        const dbRecord = cloudFiles.find(cf =>
+          cf.storage_path === f.name ||
+          cf.file_path === f.name ||
+          (cf.public_url && cf.public_url.includes(f.name)) ||
+          cf.id === f.name.split('_')[0]
+        );
+        return dbRecord ? dbRecord.original_name : null;
+      }).filter(Boolean) as string[];
 
       // 1. 刪除 Storage 實體檔案
-      const { error: storageError } = await supabase.storage.from('spec-files').remove(fileNames);
+      const { error: storageError } = await supabase.storage.from('spec-files').remove(storagePaths);
       if (storageError) throw storageError;
 
       // 2. 刪除上傳紀錄 (tuc_uploaded_files)
-      const { error: uploadError } = await supabase
-        .from('tuc_uploaded_files')
-        .delete()
-        .in('original_name', fileNames);
-      if (uploadError) throw uploadError;
+      if (storagePaths.length > 0) {
+        const { error: uploadError } = await supabase
+          .from('tuc_uploaded_files')
+          .delete()
+          .in('storage_path', storagePaths);
+        if (uploadError) throw uploadError;
+      }
 
       // 3. 刪除知識庫條文 (tuc_history_knowledge)
-      const { error: knowledgeError } = await supabase
-        .from('tuc_history_knowledge')
-        .delete()
-        .in('source_file_name', fileNames);
-      if (knowledgeError) throw knowledgeError;
+      if (originalNames.length > 0) {
+        const { error: knowledgeError } = await supabase
+          .from('tuc_history_knowledge')
+          .delete()
+          .in('source_file_name', originalNames);
+        if (knowledgeError) throw knowledgeError;
+      }
 
-      alert('清理完成！已徹底移除 ' + fileNames.length + ' 個檔案及其所有關聯紀錄。');
+      alert('清理完成！已徹底移除 ' + storagePaths.length + ' 個檔案及其所有關聯紀錄。');
       setShowCleanupModal(false);
       setLargeFilesFound([]);
       fetchCloudFiles();
