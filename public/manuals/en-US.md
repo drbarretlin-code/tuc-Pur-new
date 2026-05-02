@@ -41,7 +41,7 @@ The system provides two key threshold settings to customize the breadth and prec
 
 The system has fully adopted a bilingual side-by-side display architecture. Regardless of interface language, all specification documents are presented in "Primary Language on Top, Secondary Language Below" format:
 
-- 🔤 **Auto Bilingual Generation**: After AI Regeneration, the system simultaneously produces corresponding clauses in both the primary and secondary languages, requiring no additional action.
+- 🔤 **Auto Bilingual Generation**: After Bilingual Sync, the system simultaneously produces corresponding clauses in both the primary and secondary languages, requiring no additional action.
   - **Example** (Chinese + Thai):
     > Primary (Chinese): 電源供應器，額定電壓 220V AC，50Hz
     > Secondary (Thai): แหล่งจ่ายไฟ แรงดันไฟฟ้าที่กำหนด 220V AC, 50Hz
