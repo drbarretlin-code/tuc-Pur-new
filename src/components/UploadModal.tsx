@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CloudUpload, Loader2, ExternalLink, CheckCircle2, History, Zap, Minus } from 'lucide-react';
+import { X, CloudUpload, Loader2, ExternalLink, CheckCircle2, History, Minus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { t } from '../lib/i18n';
 import type { Language } from '../lib/i18n';
@@ -140,6 +140,7 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
 
       // --- 第三階段：極速併行上傳 ---
       const maxSizeBytes = 50 * 1024 * 1024; // 50MB
+      let completedCount = 0;
       
       const rawUploadResults = await Promise.all(fileList.map(async (file) => {
         try {
@@ -154,6 +155,7 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
             cleanFileName = extMatch[1];
           }
 
+          setCurrentUploadingName(cleanFileName);
           const ext = cleanFileName.split('.').pop() || 'pdf';
           const storageFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
           const { error: storageError } = await client.storage.from('spec-files').upload(storageFileName, file);
@@ -176,6 +178,9 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
           }).select('id').single();
   
           if (insertError) throw insertError;
+          
+          completedCount++;
+          setUploadProgress(Math.floor((completedCount / fileList.length) * 80));
   
           return { file, url: publicUrl, displayName, storagePath: storageFileName, id: inserted.id };
         } catch (err: any) {
@@ -197,6 +202,7 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
 
       // --- 第四階段：推送至後端解析佇列 ---
       setCurrentUploadingName(t('pushingToQueue', language));
+      setUploadProgress(90);
       const fileIdsToEnqueue = uploadResults.map(r => r.id);
       if (fileIdsToEnqueue.length > 0) {
         try {
@@ -353,11 +359,6 @@ const UploadWizardModal: React.FC<Props> = ({ isOpen, onClose, onMinimize, isMin
           </div>
         </div>
 
-        <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(230,0,18,0.05)', borderRadius: '8px', border: '1px solid rgba(230,0,18,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--tuc-red)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Zap size={14} /> <b>{t('expertTip', language)}</b> {t('jsonStored', language)}
-          </p>
-        </div>
       </div>
     </div>
   );
