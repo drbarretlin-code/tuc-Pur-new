@@ -2,7 +2,7 @@
  * V33.2: AI 佇列狀態指示器
  * 當 aiQueue 有任務排隊時，在畫面右下角顯示浮動通知。
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueueStatus } from '../contexts/QueueContext';
 import { Loader2, Clock, AlertTriangle } from 'lucide-react';
 

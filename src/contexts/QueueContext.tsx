@@ -2,7 +2,7 @@
  * V33.2: 全域佇列狀態廣播器
  * 讓 React 元件能訂閱 aiQueue 的即時狀態，以在 UI 呈現「排隊進度」。
  */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { setQueueNotifier } from '../lib/knowledgeParser';
 
 export interface QueueStatus {
