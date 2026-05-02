@@ -141,12 +141,16 @@ class QueueManager {
         this._broadcast();
       } catch (err: any) {
         const msg = err.message || '';
-        if (msg.includes('429') || msg.includes('Quota') || msg.includes('503')) {
-          console.warn(`[Queue] 捕捉到限流/過載錯誤 (429/503)，觸發冷卻 60 秒`);
-          this.globalPauseUntil = Date.now() + 60000;
-          this._broadcast();
-          if (task.retries < 2) {
+        if (msg.includes('429') || msg.includes('Quota') || msg.includes('503') || msg.toLowerCase().includes('overloaded')) {
+          console.warn(`[Queue] 偵測到金鑰限流或伺服器過載，嘗試切換金鑰...`);
+          
+          // V52: 遇到限流時立即失效快取，讓下次重試重新選取金鑰
+          invalidateCachedModel();
+
+          if (task.retries < 5) {
             task.retries++;
+            // 稍待 1 秒後重試，避免緊湊請求
+            await new Promise(r => setTimeout(r, 1000));
             this.queue.unshift(task);
           } else {
             task.reject(err);
