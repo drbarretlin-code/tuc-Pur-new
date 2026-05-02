@@ -53,6 +53,155 @@ export function trackGeminiUsage(modelId?: string | null) {
   }
 }
 
+// ==========================================
+// V33: RequestQueueManager (A+B+C 防護網)
+// ==========================================
+
+export function sanitizePrompt(prompt: string): string {
+  if (!prompt) return prompt;
+  let safe = prompt;
+  safe = safe.replace(/[A-Z][12]\d{8}/gi, '[ID_MASKED]');
+  safe = safe.replace(/09\d{8}/g, '[PHONE_MASKED]');
+  return safe;
+}
+
+// 延遲匯入，避免循環依賴
+let _notifyQueueStatus: ((s: any) => void) | null = null;
+export function setQueueNotifier(fn: (s: any) => void) {
+  _notifyQueueStatus = fn;
+}
+
+interface QueueTask<T> {
+  id: string;
+  execute: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: any) => void;
+  retries: number;
+}
+
+class QueueManager {
+  private queue: QueueTask<any>[] = [];
+  private isProcessing = false;
+  private lastRequestTime = 0;
+  private readonly REQUEST_INTERVAL = 4000;
+  private globalPauseUntil = 0;
+
+  public enqueue<T>(execute: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push({
+        id: crypto.randomUUID(),
+        execute,
+        resolve,
+        reject,
+        retries: 0
+      });
+      this._broadcast();
+      this.processQueue();
+    });
+  }
+
+  private _broadcast() {
+    if (_notifyQueueStatus) {
+      _notifyQueueStatus({
+        pending: this.queue.length,
+        isProcessing: this.isProcessing,
+        isPaused: Date.now() < this.globalPauseUntil,
+        pauseRemainingMs: Math.max(0, this.globalPauseUntil - Date.now()),
+      });
+    }
+  }
+
+  private async processQueue() {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+
+    while (this.queue.length > 0) {
+      const now = Date.now();
+
+      if (now < this.globalPauseUntil) {
+        const waitTime = this.globalPauseUntil - now;
+        console.warn(`[Queue] 處於全域冷卻期，等待 ${Math.round(waitTime / 1000)} 秒...`);
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+
+      const timeSinceLast = now - this.lastRequestTime;
+      if (timeSinceLast < this.REQUEST_INTERVAL) {
+        await new Promise(r => setTimeout(r, this.REQUEST_INTERVAL - timeSinceLast));
+      }
+
+      const task = this.queue.shift();
+      if (!task) continue;
+
+      this.lastRequestTime = Date.now();
+
+      try {
+        const result = await task.execute();
+        task.resolve(result);
+        this._broadcast();
+      } catch (err: any) {
+        const msg = err.message || '';
+        if (msg.includes('429') || msg.includes('Quota') || msg.includes('503')) {
+          console.warn(`[Queue] 捕捉到限流/過載錯誤 (429/503)，觸發冷卻 60 秒`);
+          this.globalPauseUntil = Date.now() + 60000;
+          this._broadcast();
+          if (task.retries < 2) {
+            task.retries++;
+            this.queue.unshift(task);
+          } else {
+            task.reject(err);
+          }
+        } else {
+          task.reject(err);
+        }
+      }
+    }
+
+    this.isProcessing = false;
+    this._broadcast();
+  }
+}
+
+export const aiQueue = new QueueManager();
+
+// V33.1: sessionStorage 持久化 RPM 計數器，防止網頁重整導致計數器歸零
+
+const KEY_USAGE_STORAGE = '_TUC_KEY_RPM';
+
+function loadKeyUsage(): Record<string, number[]> {
+  try {
+    const raw = sessionStorage.getItem(KEY_USAGE_STORAGE);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveKeyUsage(usage: Record<string, number[]>) {
+  try {
+    sessionStorage.setItem(KEY_USAGE_STORAGE, JSON.stringify(usage));
+  } catch {}
+}
+
+function isKeyExhausted(apiKey: string): boolean {
+  const usage = loadKeyUsage();
+  if (!usage[apiKey]) usage[apiKey] = [];
+  const now = Date.now();
+  usage[apiKey] = usage[apiKey].filter((ts: number) => now - ts < 60000);
+  saveKeyUsage(usage);
+  return usage[apiKey].length >= 14;
+}
+
+export function recordKeyUsage(apiKey: string) {
+  const usage = loadKeyUsage();
+  if (!usage[apiKey]) usage[apiKey] = [];
+  usage[apiKey].push(Date.now());
+  saveKeyUsage(usage);
+  console.log(`[Key RPM] 金鑰 ${apiKey.substring(0, 8)}... 當前分鐘計數: ${usage[apiKey].filter((ts: number) => Date.now() - ts < 60000).length}/14`);
+}
+
+// ==========================================
+
 /**
  * V27: 瀑布式金鑰輪替輔助函式
  * 整合 localStorage 中的金鑰池與目前活動金鑰
@@ -89,7 +238,10 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
   console.log(`[AI Discovery] 啟動瀑布式偵測 (Waterfall V3.2)，金鑰池總數: ${keys.length}`);
 
   const activeKey = localStorage.getItem('tuc_gemini_key') || (Array.isArray(apiKeys) ? apiKeys[0] : apiKeys);
-  if (cachedModelId && activeKey) return { modelId: cachedModelId, apiKey: activeKey };
+  if (cachedModelId && activeKey && !isKeyExhausted(activeKey)) {
+    recordKeyUsage(activeKey);
+    return { modelId: cachedModelId, apiKey: activeKey };
+  }
 
   // V28.x: sessionStorage TTL 快取（30 分鐘）
   const _MODEL_TTL = 30 * 60 * 1000;
@@ -97,9 +249,10 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
     const _raw = sessionStorage.getItem('tuc_model_cache');
     if (_raw) {
       const { modelId: _mId, apiKey: _aKey, ts } = JSON.parse(_raw);
-      if (_mId && _aKey && Date.now() - ts < _MODEL_TTL) {
+      if (_mId && _aKey && Date.now() - ts < _MODEL_TTL && !isKeyExhausted(_aKey)) {
         cachedModelId = _mId;
         console.log(`[AI Discovery] 命中 sessionStorage 快取：${_mId}，剩餘 TTL ${Math.round((_MODEL_TTL - (Date.now() - ts)) / 60000)} 分鐘。`);
+        recordKeyUsage(_aKey);
         return { modelId: _mId, apiKey: _aKey };
       }
     }
@@ -149,6 +302,11 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
     const currentKey = keys[i];
     if (!currentKey) continue;
 
+    if (isKeyExhausted(currentKey)) {
+      console.warn(`[AI Discovery] 金鑰 ${currentKey.substring(0, 8)}... 已達 RPM 限制，跳過`);
+      continue;
+    }
+
     const keyId = currentKey.substring(0, 10);
     if (keyHealth[keyId] && now < keyHealth[keyId]) {
       console.log(`[AI Discovery] 金鑰索引 ${i} 正在冷卻中，剩餘 ${Math.ceil((keyHealth[keyId] - now) / 1000)} 秒...`);
@@ -180,6 +338,7 @@ export async function getAutoSelectedModel(apiKeys: string | string[]): Promise<
 
         trackGeminiUsage(mId); 
         cachedModelId = mId;
+        recordKeyUsage(currentKey);
         // localStorage.setItem('tuc_gemini_key', currentKey); // V522: 移除覆寫邏輯，避免金鑰池被單一金鑰取代
         try { sessionStorage.setItem('tuc_model_cache', JSON.stringify({ modelId: mId, apiKey: currentKey, ts: Date.now() })); } catch {}
         console.log(`[AI Discovery] 試驗成功！鎖定可用模型 ${mId} (金鑰索引: ${i})。`);
@@ -379,13 +538,7 @@ export const processFileToKnowledge = async (file: File, apiKey?: string, equipm
   
   if (pool.length === 0) throw new Error(t('aiNoKey', lang));
 
-  // V27.30: 讓探針測試所有 Key 與所有 Model 並取得成功的配對
-  const discovery = await getAutoSelectedModel(pool);
-  if (!discovery) throw new Error(t('aiError', lang));
-  const { modelId, apiKey: workingKey } = discovery;
-  
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
 
   let inlineData: { data: string, mimeType: string } | null = null;
   let text = '';
@@ -455,21 +608,28 @@ export const processFileToKnowledge = async (file: File, apiKey?: string, equipm
   `;
 
   try {
-    const contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
-    
-    if (inlineData) {
-      contents[0].parts.push({ inlineData });
-    }
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(pool);
+      if (!discovery) throw new Error(t('aiError', lang));
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
-    trackGeminiUsage(cachedModelId);
-    const result = await model.generateContent({
-      contents,
-      generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.2,
-        topP: 0.8,
-        topK: 40
+      const contents: any[] = [{ role: 'user', parts: [{ text: sanitizePrompt(prompt) }] }];
+      if (inlineData) {
+        contents[0].parts.push({ inlineData });
       }
+
+      return await model.generateContent({
+        contents,
+        generationConfig: {
+          maxOutputTokens: 8192,
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 40
+        }
+      });
     }).catch(err => {
       const msg = err.message || '';
 
@@ -699,12 +859,6 @@ export const translateSearchQueries = async (eqK: string, reqK: string, apiKey: 
   } catch {}
   
   try {
-    const discovery = await getAutoSelectedModel(apiKey);
-    if (!discovery) return { eqVariants: [eqK], reqVariants: [reqK] };
-    const { modelId, apiKey: workingKey } = discovery;
-    const genAI = new GoogleGenerativeAI(workingKey);
-    const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
-
     const prompt = `Translate the following two terms into Traditional Chinese, English, Simplified Chinese, and Thai.
 Return ONLY a JSON object with this exact structure, ensuring all values are arrays of strings:
 {"eqVariants": ["original", "traditional", "english", "simplified", "thai"], "reqVariants": ["original", "traditional", "english", "simplified", "thai"]}
@@ -713,10 +867,18 @@ Term 1 (eq): ${eqK || ' '}
 Term 2 (req): ${reqK || ' '}
     `;
 
-    trackGeminiUsage(cachedModelId);
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1 }
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKey);
+      if (!discovery) throw new Error('AI Error: No model');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: sanitizePrompt(prompt) }] }],
+        generationConfig: { temperature: 0.1 }
+      });
     });
     
     const text = result.response.text();
@@ -815,10 +977,6 @@ export const getHistorySuggestions = async (
  */
 export const syncFormDataToKnowledge = async (data: any, apiKey?: string | string[]) => {
   const finalKey = apiKey || getGeminiKeyPool();
-  const discovery = await getAutoSelectedModel(finalKey);
-  if (!discovery) throw new Error('AI 同步失敗：無可用模型');
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
 
   const docId = data.docId;
   const equipmentName = data.equipmentName || '未命名設備';
@@ -857,11 +1015,17 @@ export const syncFormDataToKnowledge = async (data: any, apiKey?: string | strin
   if (!supabase) throw new Error('資料庫連線未建立');
 
   try {
-    const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(finalKey);
+      if (!discovery) throw new Error('AI 同步失敗：無可用模型');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
-    trackGeminiUsage(cachedModelId);
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      return await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: sanitizePrompt(prompt) }] }]
+      });
     });
     const responseText = result.response.text();
     if (!responseText) throw new Error('AI 同步回傳內容為空');
@@ -960,15 +1124,17 @@ export const assembleJsonFromExistingEntries = async (docId: string, apiKey?: st
   `;
 
   try {
-    const discovery = await getAutoSelectedModel(rawKey);
-    if (!discovery) throw new Error('AI 組裝失敗：無可用模型');
-    const { modelId, apiKey: workingKey } = discovery;
-    const genAI = new GoogleGenerativeAI(workingKey);
-    const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(rawKey);
+      if (!discovery) throw new Error('AI 組裝失敗：無可用模型');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
-    trackGeminiUsage(cachedModelId);
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      return await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: sanitizePrompt(prompt) }] }]
+      });
     });
     const responseText = result.response.text();
     if (!responseText) throw new Error('AI 反向組裝回傳內容為空');
@@ -1025,14 +1191,6 @@ export async function translateHints(
   const needsTranslation = hints.filter(h => h.translatedLang !== targetLang);
   if (needsTranslation.length === 0) return hints;
 
-  const discovery = await getAutoSelectedModel(apiKey);
-  if (!discovery) {
-    console.warn('[AI Translation] 無可用金鑰，跳過翻譯。');
-    return hints;
-  }
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
   const langMap: Record<string, string> = {
     'zh-CN': 'Simplified Chinese (简体中文)',
@@ -1047,10 +1205,21 @@ export async function translateHints(
   INPUT: ${JSON.stringify(inputTexts)}`;
 
   try {
-    trackGeminiUsage(modelId);
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, topP: 0.8, topK: 40 }
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKey);
+      if (!discovery) {
+        console.warn('[AI Translation] 無可用金鑰，跳過翻譯。');
+        throw new Error('NO_KEY');
+      }
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: sanitizePrompt(prompt) }] }],
+        generationConfig: { temperature: 0.1, topP: 0.8, topK: 40 }
+      });
     });
     const text = result.response.text();
     const cleanJson = text.match(/\[[\s\S]*\]/)?.[0] || text.replace(/```json|```/g, '').trim();
@@ -1094,19 +1263,22 @@ export async function translateCloudMetadata(
 ): Promise<{ id: string; name: string; tags?: string[] }[]> {
   if (items.length === 0 || targetLang === 'zh-TW') return items;
 
-  const discovery = await getAutoSelectedModel(apiKey);
-  if (!discovery) return items;
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
   const payload = items.map((item, idx) => ({ idx, id: item.id, name: item.name, tags: item.tags || [] }));
   const prompt = `Translate the following items into ${targetLang}. Return ONLY a JSON array.
   Payload: ${JSON.stringify(payload)}`;
 
   try {
-    trackGeminiUsage(modelId);
-    const result = await model.generateContent(prompt);
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKey);
+      if (!discovery) throw new Error('NO_KEY');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent(sanitizePrompt(prompt));
+    });
     const text = result.response.text();
     const cleanJson = text.match(/\[[\s\S]*\]/)?.[0] || text.replace(/```json|```/g, '').trim();
     const translatedList = JSON.parse(cleanJson);
@@ -1135,20 +1307,23 @@ export async function translateFormFields(
   retryCount: number = 0
 ): Promise<{ id: string; translatedText: string }[]> {
   if (items.length === 0) return [];
-  const discovery = await getAutoSelectedModel(apiKey);
-  if (!discovery) return items.map(i => ({ id: i.id, translatedText: i.text }));
 
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
   const prompt = `Translate the 'text' field of the following JSON array into ${targetLang}.
   Return ONLY a JSON array with 'id' and 'translatedText'.
   Payload: ${JSON.stringify(items)}`;
 
   try {
-    trackGeminiUsage(modelId);
-    const result = await model.generateContent(prompt);
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKey);
+      if (!discovery) throw new Error('NO_KEY');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent(sanitizePrompt(prompt));
+    });
     const text = result.response.text();
     const cleanJson = text.match(/\[[\s\S]*\]/)?.[0] || text.replace(/```json|```/g, '').trim();
     const translatedList = JSON.parse(cleanJson);
@@ -1176,19 +1351,22 @@ export async function translateFullSpec(
   retryCount: number = 0
 ): Promise<any> {
   if (!data || targetLang === 'zh-TW') return data;
-  const discovery = await getAutoSelectedModel(apiKey);
-  if (!discovery) return data;
 
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
   const prompt = `Translate this procurement specification JSON into ${targetLang}. Return ONLY the JSON.
   JSON: ${JSON.stringify(data)}`;
 
   try {
-    trackGeminiUsage(modelId);
-    const result = await model.generateContent(prompt);
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKey);
+      if (!discovery) throw new Error('NO_KEY');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent(sanitizePrompt(prompt));
+    });
     const text = result.response.text();
     const cleanJson = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanJson);
@@ -1212,12 +1390,7 @@ export async function translateFullBilingualState(
   retryCount: number = 0
 ): Promise<Record<string, string>> {
   if (Object.keys(payload).length === 0) return {};
-  const discovery = await getAutoSelectedModel(apiKeys);
-  if (!discovery) return payload;
 
-  const { modelId, apiKey: workingKey } = discovery;
-  const genAI = new GoogleGenerativeAI(workingKey);
-  const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
 
   const langMap: Record<string, string> = {
     'zh-TW': 'Traditional Chinese (Taiwan)',
@@ -1231,8 +1404,16 @@ export async function translateFullBilingualState(
   INPUT: ${JSON.stringify(payload)}`;
 
   try {
-    trackGeminiUsage(modelId);
-    const result = await model.generateContent(prompt);
+    const result = await aiQueue.enqueue(async () => {
+      const discovery = await getAutoSelectedModel(apiKeys);
+      if (!discovery) throw new Error('NO_KEY');
+      const { modelId, apiKey: workingKey } = discovery;
+      trackGeminiUsage(modelId);
+      const genAI = new GoogleGenerativeAI(workingKey);
+      const model = genAI.getGenerativeModel({ model: modelId, safetySettings });
+
+      return await model.generateContent(sanitizePrompt(prompt));
+    });
     const text = result.response.text();
     const cleanJson = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanJson);

@@ -12,6 +12,8 @@ import SystemDiagnosticModal from './components/SystemDiagnosticModal';
 import UploadWizardModal from './components/UploadModal';
 import { t, translations, BOILERPLATE_KEYS } from './lib/i18n';
 import type { Language } from './lib/i18n';
+import { QueueProvider } from './contexts/QueueContext';
+import QueueStatusBadge from './components/QueueStatusBadge';
 
 function App() {
   const [data, setData] = useState<FormState>(() => {
@@ -3044,8 +3046,17 @@ function App() {
           background: rgba(255,255,255,0.05) !important;
         }
       `}</style>
+      <QueueStatusBadge />
     </div>
   );
 }
 
-export default App;
+function AppWithQueue() {
+  return (
+    <QueueProvider>
+      <App />
+    </QueueProvider>
+  );
+}
+
+export default AppWithQueue;
