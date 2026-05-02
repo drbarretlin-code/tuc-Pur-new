@@ -1,4 +1,4 @@
-# TUC Procurement Specs & Knowledge Base - User Manual (V520.1)
+# TUC Procurement Specs & Knowledge Base - User Manual (V530.1)
 
 Welcome to the TUC Intelligent Procurement System. This manual will guide you through the core features to achieve efficient and standardized specification creation.
 
@@ -9,7 +9,7 @@ Welcome to the TUC Intelligent Procurement System. This manual will guide you th
 The system integrates deep learning and cloud data to provide the following core features:
 
 - ✨ **AI Regenerate**: Click the 🔄 **Regenerate** button, and the AI will precisely match similar clauses from the cloud knowledge base based on the current equipment name and requirements description to auto-fill suggestions.
-- ☁️ **Import from Cloud**: Open the 🗄️ **Import from Cloud** window to search and retrieve historical specifications stored in the knowledge base and apply them to the editor (Bilingual sync is automatically triggered in Thai mode).
+- ☁️ **Import from Cloud**: Open the 🗄️ **Import from Cloud** window to search and retrieve historical specifications stored in the knowledge base and apply them to the editor.
 - 📤 **Upload to Database**: Upload locally parsed raw documents to the cloud for the AI to learn and transform into structured technical entries.
 - 📊 **Dashboard**: View the list of cloud-stored specs, parsing progress, and resource usage status.
 
@@ -37,14 +37,20 @@ The system provides two key threshold settings to customize the breadth and prec
 
 ---
 
-## 4. Thai Language Exclusive: Bilingual Sync 🇹🇭
+## 4. Universal Bilingual Display Architecture 🌐
 
-To optimize cross-border communication, the Thai interface provides a dedicated feature:
+The system has fully adopted a bilingual side-by-side display architecture. Regardless of interface language, all specification documents are presented in "Primary Language on Top, Secondary Language Below" format:
 
-- 🔁 **One-Click Translation (Bilingual Sync)**:
-    - **When to use**: Use this after importing Chinese content from the cloud or after AI generation if the Chinese translation has not yet appeared.
-    - **Function**: Translates all Thai content into Chinese, achieving a "Thai on Top, Chinese on Bottom" bilingual layout.
-    - **Limitation**: To protect **API Quotas**, the system has call frequency limits. If a `429` error occurs, please wait for the cooldown period to end.
+- 🔤 **Auto Bilingual Generation**: After AI Regeneration, the system simultaneously produces corresponding clauses in both the primary and secondary languages, requiring no additional action.
+  - **Example** (Chinese + Thai):
+    > Primary (Chinese): 電源供應器，額定電壓 220V AC，50Hz
+    > Secondary (Thai): แหล่งจ่ายไฟ แรงดันไฟฟ้าที่กำหนด 220V AC, 50Hz
+- ☁️ **Auto Bilingual Expansion on Cloud Import**: When loading historical specs from the cloud, the system automatically syncs bilingual fields, updating both the editor and preview area in real time.
+  - **Example** (English + Chinese):
+    > Primary (English): Insulation Class: F, Ambient Temperature: -10°C ~ +50°C
+    > Secondary (Chinese): 絕緣等級：F 級，環境溫度：-10°C ~ +50°C
+- 📄 **Bilingual Export Format**: Both Word and PDF exports include a complete bilingual table with primary and secondary languages in separate rows, compliant with international procurement standards.
+- ⚙️ **Instant Language Switch**: After switching the interface language, the bilingual display order in both the editor and preview area adjusts automatically, without reloading the document.
 
 ---
 
@@ -67,4 +73,4 @@ After the specifications are verified, please perform the final step:
     - **Purpose**: Saves this final version to the cloud so your technical knowledge can be searched and referenced by future applicants, enabling corporate knowledge transfer.
 
 ---
-*Version: V520.1 | Update Date: 2026-04-29 | Tech Support: Dr. Barret Lin*
+*Version: V530.1 | Update Date: 2026-05-02 | Tech Support: Dr. Barret Lin*
