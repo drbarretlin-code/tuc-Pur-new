@@ -144,7 +144,7 @@ export interface FormState {
 
 export const INITIAL_FORM_STATE: FormState = {
   language: (localStorage.getItem('tuc_ui_lang') as Language) || 'zh-TW',
-  primaryLanguage: (localStorage.getItem('tuc_ui_lang') === 'th-TH') ? 'th-TH' : ((localStorage.getItem('tuc_ui_lang') as Language) || 'zh-TW'),
+  primaryLanguage: (localStorage.getItem('tuc_ui_lang') as Language) || 'zh-TW',
   secondaryLanguage: (localStorage.getItem('tuc_ui_lang') === 'th-TH') ? 'zh-TW' : ((localStorage.getItem('tuc_ui_lang') as Language) || 'zh-TW'),
   docId: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(2),
   department: localStorage.getItem('tuc_dept') || '',

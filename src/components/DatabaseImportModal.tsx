@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database, X, Search, Loader2, AlertCircle, Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { assembleJsonFromExistingEntries, translateCloudMetadata } from '../lib/knowledgeParser';
+import { assembleJsonFromExistingEntries, translateCloudMetadata, getGeminiKeyPool } from '../lib/knowledgeParser';
 import { t } from '../lib/i18n';
 import type { Language } from '../lib/i18n';
 
@@ -36,8 +36,8 @@ export const DatabaseImportModal: React.FC<DatabaseImportModalProps> = ({ isOpen
   }, [documents, language, searchQuery]); 
 
   const translateList = async () => {
-    const apiKey = localStorage.getItem('tuc_gemini_key') || '';
-    if (!apiKey || isTranslating) return;
+    const apiKeys = getGeminiKeyPool();
+    if (apiKeys.length === 0 || isTranslating) return;
     
     setIsTranslating(true);
     try {
@@ -64,7 +64,7 @@ export const DatabaseImportModal: React.FC<DatabaseImportModalProps> = ({ isOpen
         return;
       }
 
-      const translated = await translateCloudMetadata(itemsToTranslate, language, apiKey);
+      const translated = await translateCloudMetadata(itemsToTranslate, language, apiKeys);
       
       // 採用「累計式」更新：保留既有已翻譯內容，並加入新的翻譯結果
       setTranslatedDocs(prev => {
@@ -215,6 +215,12 @@ export const DatabaseImportModal: React.FC<DatabaseImportModalProps> = ({ isOpen
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Database className="tuc-gradient-text" size={24} />
             <h2 style={{ fontSize: '1.5rem', color: 'white' }}>{t('importCloudTitle', language)}</h2>
+            {isTranslating && (
+              <span style={{ fontSize: '0.65rem', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                <Loader2 size={10} className="animate-spin" />
+                {t('aiTranslatingStatus', language)}...
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="icon-btn" style={{ padding: '8px' }}><X size={20} /></button>
         </div>

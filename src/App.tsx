@@ -442,12 +442,14 @@ function App() {
   // V30.3: 手動/意圖觸發之全量雙語同步
   const [isSyncingBilingual, setIsSyncingBilingual] = useState(false);
   const handleBilingualSync = async (force: boolean = false) => {
-    if (data.primaryLanguage === data.secondaryLanguage) return; // V522: 只有在主副語系不同時啟動同步
+    // V523: 只要主/副語系不同，或介面與副語系不同，即可啟動同步
+    if (data.primaryLanguage === data.secondaryLanguage && data.language === data.secondaryLanguage) return; 
     if (isSyncingBilingual) return;
 
     // V521: 預填靜態 Boilerplate 字典，避免重複 AI 轉譯消耗
     const getStaticTranslation = (text: string, targetLang: Language): string | null => {
-      const srcLang = data.primaryLanguage;
+      // V523: 若主副語系相同但介面不同，則以介面語系作為來源校準
+      const srcLang = data.primaryLanguage === data.secondaryLanguage ? data.language : data.primaryLanguage;
       // 1. 如果 text 本身就是一個 Boilerplate Key
       if (BOILERPLATE_KEYS.includes(text)) {
         return translations[targetLang][text] || null;
@@ -575,7 +577,7 @@ function App() {
 
   // V30.3: 當進入預覽分頁時，自動檢查並同步（確保導出時必有雙語）
   useEffect(() => {
-    if ((mobileAppTab === 'preview' || splitPercentage < 20) && data.primaryLanguage !== data.secondaryLanguage) {
+    if ((mobileAppTab === 'preview' || splitPercentage < 20) && (data.primaryLanguage !== data.secondaryLanguage || data.language !== data.secondaryLanguage)) {
       handleBilingualSync();
     }
   }, [mobileAppTab, splitPercentage, data.primaryLanguage, data.secondaryLanguage]);
@@ -1584,7 +1586,7 @@ function App() {
             </div>
 
             {/* V30.3: 雙語同步手動按鈕 (全語系開放) */}
-            {data.primaryLanguage !== data.secondaryLanguage && (
+            {(data.primaryLanguage !== data.secondaryLanguage || data.language !== data.secondaryLanguage) && (
               <button
                 onClick={() => handleBilingualSync(true)}
                 disabled={isSyncingBilingual}
