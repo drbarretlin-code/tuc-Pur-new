@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS tuc_uploaded_files (
   equipment_name VARCHAR(255),
   equipment_tags TEXT[] DEFAULT '{}',
   requirement_desc TEXT,
+  full_json_data JSONB,
   is_parsed BOOLEAN DEFAULT FALSE,
   is_calibrated BOOLEAN DEFAULT FALSE,
   parsed_at TIMESTAMP WITH TIME ZONE,

@@ -10,13 +10,16 @@ CREATE TABLE IF NOT EXISTS tuc_uploaded_files (
   requester VARCHAR(100),
   equipment_name VARCHAR(255),
   equipment_tags TEXT[] DEFAULT '{}',
+  requirement_desc TEXT,
+  full_json_data JSONB,
   is_parsed BOOLEAN DEFAULT FALSE,
   is_calibrated BOOLEAN DEFAULT FALSE,
-  parse_status VARCHAR(50) DEFAULT 'unparsed',
-  file_size BIGINT DEFAULT 0,
-  extracted_text TEXT,
   parsed_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  parse_status VARCHAR(50) DEFAULT 'pending',
+  error_message TEXT,
+  extracted_text TEXT,
+  file_size BIGINT DEFAULT 0
 );
 
 -- 開放匿名讀取與寫入權限
