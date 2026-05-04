@@ -2751,10 +2751,12 @@ function App() {
                               width: 'fit-content'
                             }}>
                               <Loader2 size={10} className="spin" /> {(f as any).parse_status === 'pending' ? t('statusPending', data.language) : t('statusProcessing', data.language)}
-                              {((f as any).parse_status && (f as any).parse_status.startsWith('processing:')) && ` (${(f as any).parse_status.split(':')[1]})`}
+                              {(typeof (f as any).parse_status === 'string' && (f as any).parse_status.startsWith('processing:')) && ` (${(f as any).parse_status.split(':')[1]})`}
                             </span>
-                            {((f as any).parse_status && (f as any).parse_status.startsWith('processing:')) && (() => {
-                              const [cur, total] = (f as any).parse_status.split(':')[1].split('/').map(Number);
+                            {(typeof (f as any).parse_status === 'string' && (f as any).parse_status.startsWith('processing:')) && (() => {
+                              const parts = (f as any).parse_status.split(':');
+                              if (parts.length < 2) return null;
+                              const [cur, total] = parts[1].split('/').map(Number);
                               const pct = total ? Math.round((cur / total) * 100) : 0;
                               return (
                                 <div style={{ width: '100px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>

@@ -87,8 +87,8 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
         const secText = t(val, data.secondaryLanguage);
         const processedSec = isAutoNumber ? processAutoNumbering(secText) : secText;
         
-        const mainLines = processedMain.split('\n');
-        const secLines = processedSec.split('\n');
+        const mainLines = (typeof processedMain === 'string' ? processedMain : '').split('\n');
+        const secLines = (typeof processedSec === 'string' ? processedSec : '').split('\n');
         
         return (
           <div className="bilingual-block">
@@ -103,7 +103,7 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
     
     if (isBilingual) {
       if (status === 'cooldown') {
-        const mainLines = content.split('\n');
+        const mainLines = (typeof content === 'string' ? content : '').split('\n');
         return (
           <div className="bilingual-block">
             {mainLines.map((line: string, i: number) => formatLine(line, i === mainLines.length - 1 ? <CooldownTimer language={data.language} /> : undefined, true))}
@@ -111,7 +111,7 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
         );
       }
       if (status === 'pending') {
-        const mainLines = content.split('\n');
+        const mainLines = (typeof content === 'string' ? content : '').split('\n');
         return (
           <div className="bilingual-block">
             {mainLines.map((line: string, i: number) => formatLine(line, i === mainLines.length - 1 ? t('aiTranslatingStatus', data.language) : undefined, true))}
@@ -119,7 +119,7 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
         );
       }
       if (status === 'error') {
-        const mainLines = content.split('\n');
+        const mainLines = (typeof content === 'string' ? content : '').split('\n');
         return (
           <div className="bilingual-block">
             {mainLines.map((line: string, i: number) => formatLine(line, i === mainLines.length - 1 ? t('aiTranslateError', data.language) : undefined, true))}
@@ -127,9 +127,12 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
         );
       }
 
-      if (cachedSecondary && cachedSecondary.trim() !== content.trim()) {
-        const mainLines = content.split('\n');
-        const secLines = cachedSecondary.split('\n');
+      const safeContent = (typeof content === 'string' ? content : '');
+      const safeSec = (typeof cachedSecondary === 'string' ? cachedSecondary : '');
+
+      if (safeSec && safeSec.trim() !== safeContent.trim()) {
+        const mainLines = safeContent.split('\n');
+        const secLines = safeSec.split('\n');
         return (
           <div className="bilingual-block">
             {mainLines.map((line: string, i: number) => formatLine(line, secLines[i]))}

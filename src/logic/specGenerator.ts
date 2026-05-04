@@ -2,7 +2,7 @@ import type { FormState } from '../types/form';
 import { t } from '../lib/i18n';
 
 export const processAutoNumbering = (text: string): string => {
-  if (!text) return '';
+  if (typeof text !== 'string' || !text) return '';
   const lines = text.split('\n').filter(l => l.trim().length > 0);
   return lines.map((line, index) => {
     const cleanLine = line.replace(/^\d+\.\s*/, '').trim();
