@@ -1113,8 +1113,11 @@ export const assembleJsonFromExistingEntries = async (docId: string, apiKey?: st
     throw new Error('找不到對應條文');
   }
 
-  const rawKey = apiKey || import.meta.env.VITE_GEMINI_KEY || localStorage.getItem('tuc_gemini_key') || '';
-  if (!rawKey) throw new Error('缺少 Gemini API Key，請在設定中輸入。');
+  let pool = getGeminiKeyPool();
+  if (apiKey && !pool.includes(apiKey)) {
+    pool.unshift(apiKey); // 優先使用外部傳入的 Key
+  }
+  if (pool.length === 0) throw new Error('缺少 Gemini API Key，請在設定中輸入。');
 
   const combinedContent = entries.map(e => `[${e.category}] ${e.content}`).join('\n');
 
@@ -1129,7 +1132,7 @@ export const assembleJsonFromExistingEntries = async (docId: string, apiKey?: st
 
   try {
     const result = await aiQueue.enqueue(async () => {
-      const discovery = await getAutoSelectedModel(rawKey);
+      const discovery = await getAutoSelectedModel(pool);
       if (!discovery) throw new Error('AI 組裝失敗：無可用模型');
       const { modelId, apiKey: workingKey } = discovery;
       trackGeminiUsage(modelId);
