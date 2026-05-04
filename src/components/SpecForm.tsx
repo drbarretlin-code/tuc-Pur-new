@@ -1095,13 +1095,13 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
         onClose={() => setIsDbImportModalOpen(false)}
         onSelect={async (rawImportedData: any) => {
           setIsImportTranslating(true);
-          const apiKey = localStorage.getItem('tuc_gemini_key') || '';
           let importedData = rawImportedData;
-
-          // V17.4: 自動內容轉譯 - 若語系不符，將整個規格內容送交 AI 轉譯
-          if (data.language !== 'zh-TW' && apiKey) {
+          
+          // V523: 自動內容轉譯 - 一律檢查是否需要將規格內容轉譯為當前 UI 語系
+          const apiKeys = KP.getGeminiKeyPool();
+          if (apiKeys.length > 0) {
             try {
-              importedData = await KP.translateFullSpec(rawImportedData, data.language, apiKey);
+              importedData = await KP.translateFullSpec(rawImportedData, data.language, apiKeys);
             } catch (err) {
               console.error('[AI Content Translation] Failed:', err);
             }

@@ -1268,7 +1268,7 @@ export async function translateCloudMetadata(
   apiKey: string | string[],
   retryCount: number = 0
 ): Promise<{ id: string; name: string; tags?: string[] }[]> {
-  if (items.length === 0 || targetLang === 'zh-TW') return items;
+  if (items.length === 0) return items;
 
 
   const payload = items.map((item, idx) => ({ idx, id: item.id, name: item.name, tags: item.tags || [] }));
@@ -1357,7 +1357,7 @@ export async function translateFullSpec(
   apiKey: string | string[],
   retryCount: number = 0
 ): Promise<any> {
-  if (!data || targetLang === 'zh-TW') return data;
+  if (!data) return data;
 
 
   const prompt = `Translate this procurement specification JSON into ${targetLang}. Return ONLY the JSON.
