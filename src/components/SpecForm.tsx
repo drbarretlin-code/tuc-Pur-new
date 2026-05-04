@@ -1114,8 +1114,9 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
             'equipmentScope', 'rangeRange', 'envRequirements', 'regRequirements',
             'maintRequirements', 'safetyRequirements', 'elecSpecs', 'mechSpecs',
             'physSpecs', 'relySpecs', 'installStandard', 'workPeriod',
-            'acceptanceDesc', 'complianceDesc', 'department', 'requester',
-            'extension', 'category', 'deliveryDate',
+            'acceptanceDesc', 'acceptanceExtra', 'complianceDesc', 'contractorNotice',
+            'customSpec1Name', 'customSpec1Value', 'customSpec2Name', 'customSpec2Value',
+            'department', 'requester', 'extension', 'category', 'deliveryDate',
             'applicantName', 'deptHeadName', 'needsDrawing', 'docId'
           ];
           const formatValue = (val: any): string => {

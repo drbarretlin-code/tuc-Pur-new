@@ -471,8 +471,9 @@ function App() {
       'equipmentScope', 'rangeRange', 'envRequirements', 'regRequirements',
       'maintRequirements', 'safetyRequirements', 'elecSpecs', 'mechSpecs',
       'physSpecs', 'relySpecs', 'customSpec1Name', 'customSpec1Value',
-      'customSpec2Name', 'customSpec2Value', 'installStandard', 'acceptanceDesc',
-      'acceptanceExtra', 'complianceDesc', 'contractorNotice'
+      'customSpec2Name', 'customSpec2Value', 'installStandard', 'workPeriod',
+      'acceptanceDesc', 'acceptanceExtra', 'complianceDesc', 'contractorNotice',
+      'deliveryDate'
     ];
 
     const payload: Record<string, string> = {};
