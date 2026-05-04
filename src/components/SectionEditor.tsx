@@ -36,7 +36,7 @@ const SectionEditor: React.FC<Props> = ({
   const inputRef = React.useRef<HTMLInputElement>(null); // V30: Use ref to prevent React mutation crash
   
   const safeValue = (typeof value === 'string') ? value : (value != null ? String(value) : '');
-  const displayValue = (safeValue && safeValue.startsWith('default')) ? t(safeValue, language) : safeValue;
+  const displayValue = (typeof safeValue === 'string' && safeValue.startsWith('default')) ? t(safeValue, language) : safeValue;
 
   return (
     <div className="section-editor" style={{ marginBottom: '1.5rem' }}>
@@ -52,7 +52,7 @@ const SectionEditor: React.FC<Props> = ({
         <span>{label} {required && <span style={{ color: 'var(--tuc-red)' }}>*</span>}</span>
         
         {/* V522: 全域雙語狀態標籤 - 只要有狀態就顯示 */}
-        {bilingualStatus && !safeValue.startsWith('default') && (
+        {bilingualStatus && (typeof safeValue !== 'string' || !safeValue.startsWith('default')) && (
           <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem' }}>
             {bilingualStatus === 'pending' ? (
               <span style={{ color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>

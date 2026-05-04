@@ -123,7 +123,7 @@ function App() {
   const getSafeDiagnostic = (errorMsg: string | null): KP.DiagnosticResult | null => {
     if (!errorMsg) return null;
     try {
-      if (errorMsg.startsWith('{')) {
+      if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
         return JSON.parse(errorMsg);
       }
       return {
@@ -375,7 +375,7 @@ function App() {
   useEffect(() => {
     if (!showCloudInspector) return;
     const hasActiveJobs = cloudFiles.some(f =>
-      (f as any).parse_status === 'pending' || (f as any).parse_status === 'processing' || ((f as any).parse_status && (f as any).parse_status.startsWith('processing:'))
+      (f as any).parse_status === 'pending' || (f as any).parse_status === 'processing' || (typeof (f as any).parse_status === 'string' && (f as any).parse_status.startsWith('processing:'))
     );
     if (!hasActiveJobs) return;
 
@@ -495,7 +495,7 @@ function App() {
         return;
       }
 
-      if (val.startsWith('default')) return;
+      if (typeof val === 'string' && val.startsWith('default')) return;
       
       const cachedSrc = data.bilingualCache[`${k}_src`];
       if (force || cachedSrc !== val) {

@@ -70,7 +70,7 @@ export const exportToWord = async (data: FormState, lang: Language) => {
 
   const vStr = (text: string | null | undefined, fieldKey?: keyof FormState) => {
     if (!text) return 'NA';
-    if (text.startsWith('default')) {
+    if (typeof text === 'string' && text.startsWith('default')) {
       if (isBilingual) {
         return `${t(text, data.primaryLanguage)}\n${t(text, data.secondaryLanguage)}`;
       }

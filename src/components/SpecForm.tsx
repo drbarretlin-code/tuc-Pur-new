@@ -444,7 +444,7 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
     // 記錄此欄位的原始預設 key，供移除後還原
     const originalDefaultKey = (INITIAL_FORM_STATE[contentField] as string) || '';
     // 判斷欄位目前是否仍為 i18n default key（以 'default' 開頭）
-    const isDefaultKey = nextContent.startsWith('default');
+    const isDefaultKey = typeof nextContent === 'string' && nextContent.startsWith('default');
     
     // V28.x: 取得預設文字的完整展開內容
     let expandedDefaultText = '';
@@ -464,9 +464,9 @@ const SpecForm: React.FC<Props> = ({ data, onChange, isSyncBlocked = false, forc
       nextContent = cleanHintContent(nextContent);
       // 移除後若剩餘內容與預設文字完全相同，或欄位已清空，則還原為 default key
       // 以確保跨語系切換時，系統仍能透過 t() 正確翻譯預設文字
-      const defaultResolved = originalDefaultKey.startsWith('default') ? t(originalDefaultKey, 'zh-TW').trim() : '';
+      const defaultResolved = (typeof originalDefaultKey === 'string' && originalDefaultKey.startsWith('default')) ? t(originalDefaultKey, 'zh-TW').trim() : '';
       if (!nextContent || (defaultResolved && nextContent.trim() === defaultResolved)) {
-        nextContent = originalDefaultKey.startsWith('default') ? originalDefaultKey : '';
+        nextContent = (typeof originalDefaultKey === 'string' && originalDefaultKey.startsWith('default')) ? originalDefaultKey : '';
       }
     }
 

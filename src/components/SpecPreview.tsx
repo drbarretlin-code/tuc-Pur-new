@@ -79,7 +79,7 @@ const PaperContent: React.FC<PaperProps> = ({ data, totalPages, previewRef, id }
       );
     };
 
-    if (val.startsWith('default')) {
+    if (typeof val === 'string' && val.startsWith('default')) {
       const mainText = t(val, data.primaryLanguage);
       const processedMain = isAutoNumber ? processAutoNumbering(mainText) : mainText;
       
