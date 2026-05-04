@@ -1259,6 +1259,16 @@ export async function translateHints(
   }
 }
 
+const getLangFullName = (code: string) => {
+  const map: Record<string, string> = {
+    'zh-TW': 'Traditional Chinese (Taiwan)',
+    'zh-CN': 'Simplified Chinese',
+    'en-US': 'English',
+    'th-TH': 'Thai (ภาษาไทย)'
+  };
+  return map[code] || code;
+};
+
 /**
  * V17.3: 雲端紀錄動態翻譯
  */
@@ -1272,7 +1282,7 @@ export async function translateCloudMetadata(
 
 
   const payload = items.map((item, idx) => ({ idx, id: item.id, name: item.name, tags: item.tags || [] }));
-  const prompt = `Translate the following items into ${targetLang}. Return ONLY a JSON array.
+  const prompt = `Translate the following items into ${getLangFullName(targetLang)} using its native script. Return ONLY a JSON array. Do NOT just transliterate.
   Payload: ${JSON.stringify(payload)}`;
 
   try {
@@ -1316,7 +1326,7 @@ export async function translateFormFields(
   if (items.length === 0) return [];
 
 
-  const prompt = `Translate the 'text' field of the following JSON array into ${targetLang}.
+  const prompt = `Translate the 'text' field of the following JSON array into ${getLangFullName(targetLang)} using its native script. Do NOT just transliterate.
   Return ONLY a JSON array with 'id' and 'translatedText'.
   Payload: ${JSON.stringify(items)}`;
 
@@ -1360,7 +1370,7 @@ export async function translateFullSpec(
   if (!data) return data;
 
 
-  const prompt = `Translate this procurement specification JSON into ${targetLang}. Return ONLY the JSON.
+  const prompt = `Translate this procurement specification JSON into ${getLangFullName(targetLang)} using its native script. Do NOT just transliterate. Return ONLY the JSON.
   JSON: ${JSON.stringify(data)}`;
 
   try {
@@ -1399,15 +1409,7 @@ export async function translateFullBilingualState(
   if (Object.keys(payload).length === 0) return {};
 
 
-  const langMap: Record<string, string> = {
-    'zh-TW': 'Traditional Chinese (Taiwan)',
-    'zh-CN': 'Simplified Chinese',
-    'en-US': 'English',
-    'th-TH': 'Thai'
-  };
-  const targetLangName = langMap[targetLang] || targetLang;
-
-  const prompt = `Translate these JSON values into ${targetLangName}. Return ONLY JSON.
+  const prompt = `Translate these JSON values into ${getLangFullName(targetLang)} using its native script. Do NOT just transliterate. Return ONLY JSON.
   INPUT: ${JSON.stringify(payload)}`;
 
   try {
